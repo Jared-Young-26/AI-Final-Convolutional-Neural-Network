@@ -1,5 +1,4 @@
 # AI-Final-Convolutional-Neural-Network
-<<<<<<< HEAD
 
 Write a neural network program to recognize the handwritten digits / alphabets by dividing
 the characters as a set of edge segments and inputting the segments for classification
@@ -29,7 +28,3 @@ While convolutional neural networks are relativly well understood at a high leve
 2. https://medium.com/advanced-deep-learning/cnn-operation-with-2-kernels-resulting-in-2-feature-mapsunderstanding-the-convolutional-filter-c4aad26cf32
 
 3. https://www.geeksforgeeks.org/computer-vision/backpropagation-in-convolutional-neural-networks/
-=======
-Write a neural network program to recognize the handwritten digits / alphabets by dividing
-the characters as a set of edge segments and inputting the segments for classification
->>>>>>> origin/main
