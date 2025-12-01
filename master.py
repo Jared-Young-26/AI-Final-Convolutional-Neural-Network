@@ -3,7 +3,7 @@ import matplotlib.pyplot as plt
 import tensorflow as tf
 
 from tensorflow.keras import datasets
-from ann import train_network, predict_classes
+from ann import train_network, predict_classes, save_model, load_model
 from extra import extract_edge_segment_features, compute_edges, segment_edge_image
 
 
