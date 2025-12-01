@@ -83,3 +83,41 @@ def predict_classes(X, weights, biases):
     """Return predicted class indices using argmax."""
     probs = predict_proba(X, weights, biases)
     return np.argmax(probs, axis=1)
+
+# ============================================================
+# SAVE / LOAD MODEL
+# ============================================================
+
+def save_model(filepath, weights, biases):
+    """
+    Save ANN parameters to an NPZ file.
+
+    Example:
+    save_model("custom_ann_model.npz", weights, biases)
+    
+    """
+    np.savez(filepath,
+             **{f"W{i}": w for i, w in enumerate(weights)},
+             **{f"B{i}": b for i, b in enumerate(biases)},
+             num_layers=len(weights))
+    print(f"[ANN] Model saved to {filepath}")
+
+
+def load_model(filepath):
+    """
+    Load ANN parameters from an NPZ file.
+    Returns (weights, biases)
+
+    Example:
+    weights, biases = load_model("custom_ann_model.npz")
+    pred = predict_classes(X_new, weights, biases)
+
+    """
+    data = np.load(filepath)
+    num_layers = int(data["num_layers"])
+
+    weights = [data[f"W{i}"] for i in range(num_layers)]
+    biases  = [data[f"B{i}"] for i in range(num_layers)]
+
+    print(f"[ANN] Model loaded from {filepath}")
+    return weights, biases
