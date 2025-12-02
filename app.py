@@ -54,17 +54,19 @@ st.write("- Standard **TensorFlow CNN**")
 from streamlit_drawable_canvas import st_canvas
 
 canvas = st_canvas(
-    fill_color="#000000",
-    stroke_color="#FFFFFF",
-    stroke_width=12,
+    fill_color="rgba(255,255,255,1)",
+    stroke_width=10,
+    stroke_color="#000000",
+    background_color="#FFFFFF",
     width=280,
     height=280,
     drawing_mode="freedraw",
-    key="canvas",
+    key="canvas_digit"
 )
 
 if canvas.image_data is not None:
     img = canvas.image_data.astype("uint8")
+    st.image(canvas.image_data, caption="Live Drawing", width=280)
     img28 = preprocess_canvas(img)
 
     # Display 28x28 processed image
