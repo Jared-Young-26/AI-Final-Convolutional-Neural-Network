@@ -6,7 +6,7 @@ import tensorflow as tf
 import matplotlib.pyplot as plt
 
 from ann import load_model, predict_classes
-from extra import compute_edges, extract_edge_segment_features, segment_edge_image
+from extra import compute_edges, extract_edge_segment_features
 
 
 # ======================
@@ -21,16 +21,21 @@ def preprocess_canvas(img):
     img = cv2.resize(img, (28, 28))
     img = img.astype("float32") / 255.0
 
-    # invert: canvas draws black on white; MNIST is white on black
-    img = 1.0 - img
     return img
 
 
 def predict_ann_single(img28):
-    feats = extract_edge_segment_features(img28)
+    feats = extract_edge_segment_features(img28, grid_rows=8, grid_cols=8)
     feats = feats.reshape(1, -1)
 
     weights, biases = load_model("custom_ann_model.npz")
+
+    print("W1 mean, std:", np.mean(weights[0]), np.std(weights[0]))
+    print("W2 mean, std:", np.mean(weights[1]), np.std(weights[1]))
+    print("B1 mean, std:", np.mean(biases[0]), np.std(biases[0]))
+    print("B2 mean, std:", np.mean(biases[1]), np.std(biases[1]))
+
+
     pred = predict_classes(feats, weights, biases)[0]
     return pred
 
@@ -73,6 +78,16 @@ if canvas.image_data is not None:
     st.subheader("Processed 28×28 Image")
     st.image(img28, width=150, clamp=True)
 
+    print("RAW IMG SHAPE:", img28.shape)
+
+    feats = extract_edge_segment_features(img28, grid_rows=8, grid_cols=8)
+
+    print("FEATURES:", feats)
+    print("FEATURE VECTOR SUM:", np.sum(feats))
+    print("FEATURE VECTOR MAX:", np.max(feats))
+    print("FEATURE VECTOR MIN:", np.min(feats))
+
+
     # Predictions
     ann_pred = predict_ann_single(img28)
     cnn_pred = predict_cnn_single(img28)
@@ -89,7 +104,7 @@ if canvas.image_data is not None:
 
     # Feature Vector
     st.subheader("Edge-Segment Feature Vector")
-    feats = extract_edge_segment_features(img28)
+    feats = extract_edge_segment_features(img28, grid_rows=8, grid_cols=8)
     fig, ax = plt.subplots()
     ax.bar(range(len(feats)), feats)
     st.pyplot(fig)

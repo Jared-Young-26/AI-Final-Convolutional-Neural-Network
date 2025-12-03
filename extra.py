@@ -1,6 +1,6 @@
 import numpy as np
 
-def compute_edges(image, threshold=0.2):
+def compute_edges(image, threshold=0.05):
     """
     Compute a simple edge map using Sobel-like filters (no external libs).
     image: 2D array (H, W) with values in [0, 1] or [0, 255].
@@ -68,7 +68,7 @@ def segment_edge_image(edge_img, grid_rows=4, grid_cols=4):
     return np.array(features, dtype=np.float32)
 
 
-def extract_edge_segment_features(image, grid_rows=4, grid_cols=4, threshold=0.2):
+def extract_edge_segment_features(image, grid_rows=4, grid_cols=4, threshold=0.05):
     """
     Combined pipeline: image -> edge map -> grid segmentation -> feature vector.
     image: 2D numpy array (H,W).

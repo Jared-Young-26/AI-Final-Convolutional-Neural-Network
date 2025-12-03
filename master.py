@@ -67,7 +67,7 @@ def to_one_hot(y, num_classes):
 # 3. LOAD & PREPROCESS MNIST
 # ------------------------------------------------------
 
-def load_and_extract(grid_rows=4, grid_cols=4):
+def load_and_extract(grid_rows=8, grid_cols=8):
     print("Loading MNIST from TensorFlow...")
     (x_train, y_train), (x_test, y_test) = datasets.mnist.load_data()
 
@@ -106,12 +106,11 @@ def run_custom_ann(X_train, y_train, X_test, y_test):
     print("\nTraining Custom ANN...")
     weights, biases, log = train_network(
         X_train, y_train_oh,
-        hidden_layers=[64, 32],       # You can adjust
+        hidden_layers=[64, 32, 16],       # You can adjust
         num_outputs=num_classes,
-        learning_rate=0.2,
-        bias_value=0.1,
-        max_epochs=1000,
-        error_threshold=0.01
+        learning_rate=0.0005,
+        bias_value=0.0,
+        max_epochs=1000
     )
 
     print("\nSample Training Log:")
