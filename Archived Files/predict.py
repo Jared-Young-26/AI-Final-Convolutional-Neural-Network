@@ -4,7 +4,7 @@ from PIL import Image
 import cv2
 
 from ann import load_model, predict_classes
-from extra import extract_edge_segment_features, compute_edges
+from segments import extract_edge_segment_features, compute_edges
 
 
 # -------------------------------------------------------

@@ -1,7 +1,7 @@
 import numpy as np
 from sklearn.datasets import load_digits
 from sklearn.model_selection import train_test_split
-from extra import extract_edge_segment_features, segment_edge_image, compute_edges
+from segments import extract_edge_segment_features, segment_edge_image, compute_edges
 from ann import train_network, predict_proba, predict_classes
 
 def to_one_hot(y, num_classes):

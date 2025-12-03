@@ -1,0 +1,158 @@
+import numpy as np
+
+def compute_edges(image, threshold=0.001):
+    """
+    DESCRIPTION:
+        Produces a binary edge map from a grayscale image using simplified
+        Sobel-like gradient filters. This function exists to convert raw pixel
+        intensity data into a structural representation—edges—which often carry
+        more meaningful shape information for classification tasks.
+
+    INPUT:
+        image (np.ndarray):
+            2D grayscale array of shape (H, W). Values may be in [0, 1] or [0, 255].
+        threshold (float):
+            Normalized cutoff in [0,1] determining what gradient strengths count as edges.
+
+    PROCESSING:
+        - Normalize the image to the range [0, 1] if necessary.
+        - Apply horizontal and vertical Sobel filters to estimate intensity gradients.
+        - Compute gradient magnitude at each pixel.
+        - Normalize gradient magnitude so values fall in [0, 1].
+        - Threshold the normalized gradient to produce a binary edge map.
+
+    OUTPUT:
+        edges (np.ndarray):
+            Binary 2D array (H, W) of dtype float32, where:
+                1.0 = edge pixel
+                0.0 = non-edge pixel
+    """
+    # --- Normalize image to [0, 1] ---
+    # If pixel values exceed 1.5, assume 0–255 and scale down.
+    if image.max() > 1.5:
+        img = image.astype(np.float32) / 255.0
+    else:
+        img = image.astype(np.float32)
+
+    # --- Define Sobel-like horizontal (Kx) and vertical (Ky) gradient filters ---
+    # These filters approximate local intensity changes in x and y directions.
+    Kx = np.array([[-1, 0, 1],
+                   [-2, 0, 2],
+                   [-1, 0, 1]], dtype=np.float32)
+
+    Ky = np.array([[-1, -2, -1],
+                   [ 0,  0,  0],
+                   [ 1,  2,  1]], dtype=np.float32)
+
+    H, W = img.shape
+
+    # Gradient containers for horizontal and vertical responses
+    Gx = np.zeros_like(img)
+    Gy = np.zeros_like(img)
+
+    # --- Convolution: manually slide 3×3 Sobel kernels across the image ---
+    # Ignore the 1-pixel border because edges cannot be computed there.
+    for i in range(1, H - 1):
+        for j in range(1, W - 1):
+            region = img[i-1:i+2, j-1:j+2]  # 3×3 region centered at (i, j)
+            Gx[i, j] = np.sum(region * Kx)  # horizontal gradient strength
+            Gy[i, j] = np.sum(region * Ky)  # vertical gradient strength
+
+    # --- Gradient magnitude ---
+    # Combines Gx and Gy into a single estimate of edge strength.
+    mag = np.sqrt(Gx**2 + Gy**2)
+
+    # Normalize gradient magnitude so thresholding is consistent across images
+    mag = mag / (mag.max() + 1e-8)
+
+    # --- Binary thresholding ---
+    # Pixels with strong gradients are labeled as edges.
+    edges = (mag > threshold).astype(np.float32)
+
+    return edges
+
+
+def segment_edge_image(edge_img, grid_rows=8, grid_cols=8):
+    """
+    DESCRIPTION:
+        Converts a binary edge map into a structured feature vector by dividing
+        the image into a uniform grid and measuring edge density in each cell.
+        This provides the ANN with coarse structural information about where
+        edges occur in the image.
+
+    INPUT:
+        edge_img (np.ndarray):
+            2D binary array from compute_edges().
+        grid_rows (int):
+            Number of vertical segments.
+        grid_cols (int):
+            Number of horizontal segments.
+
+    PROCESSING:
+        - Divide the image into grid_rows × grid_cols segments.
+        - For each segment, calculate edge density (mean of 0/1 values).
+        - Flatten all segment densities into a 1D feature vector.
+
+    OUTPUT:
+        features (np.ndarray):
+            1D float32 vector of length grid_rows * grid_cols.
+            Each value is the edge density for one segment.
+    """
+    H, W = edge_img.shape
+    seg_h = H // grid_rows
+    seg_w = W // grid_cols
+
+    features = []
+
+    # --- Iterate across each grid cell ---
+    for r in range(grid_rows):
+        for c in range(grid_cols):
+
+            # Compute segment boundaries (handle last row/col carefully)
+            r_start = r * seg_h
+            c_start = c * seg_w
+            r_end = H if r == grid_rows - 1 else r_start + seg_h
+            c_end = W if c == grid_cols - 1 else c_start + seg_w
+
+            # Extract segment of the edge map
+            segment = edge_img[r_start:r_end, c_start:c_end]
+
+            # Compute density = proportion of pixels that are edges
+            density = segment.mean()
+
+            features.append(density)
+
+    return np.array(features, dtype=np.float32)
+
+
+def extract_edge_segment_features(image, grid_rows=8, grid_cols=8, threshold=0.001):
+    """
+    DESCRIPTION:
+        Full pipeline step combining edge detection and grid segmentation.
+        Converts an input image into a fixed-length structural feature vector.
+        This function exists as the pre-processing stage for our custom ANN.
+
+    INPUT:
+        image (np.ndarray):
+            2D grayscale image of shape (H, W).
+        grid_rows, grid_cols (int):
+            Specifies segmentation granularity.
+        threshold (float):
+            Edge threshold to use in compute_edges().
+
+    PROCESSING:
+        - Run edge detection using compute_edges().
+        - Segment the resulting edge map with segment_edge_image().
+        - Return the flattened density vector.
+
+    OUTPUT:
+        features (np.ndarray):
+            1D float32 array of length grid_rows * grid_cols.
+    """
+    # Compute binary edge map
+    edges = compute_edges(image, threshold=threshold)
+
+    # Convert edge map into structural density features
+    features = segment_edge_image(edges, grid_rows, grid_cols)
+
+    return features
