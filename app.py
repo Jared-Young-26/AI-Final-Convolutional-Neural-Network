@@ -7,6 +7,7 @@ import matplotlib.pyplot as plt
 
 from ann import load_model, predict_classes
 from segments import compute_edges, extract_edge_segment_features
+from cnn.cnn import make_prediction
 
 
 # ------------------------------------------------------
@@ -288,12 +289,14 @@ if canvas.image_data is not None:
     # -------------------------
     ann_pred = predict_ann_single(img28)
     cnn_pred = predict_cnn_single(img28)
+    pred3 = make_prediction(img28)
 
     # Display side-by-side results.
     st.subheader("Predictions")
-    col1, col2 = st.columns(2)
+    col1, col2, col3 = st.columns(3)
     col1.metric("Custom ANN", ann_pred)
-    col2.metric("TF CNN", cnn_pred)
+    col2.metric("Custom CNN", ann_pred)
+    col3.metric("TF CNN", cnn_pred)
 
     st.subheader("Original 28x28 Image")
     st.pyplot(viz_original(img28))

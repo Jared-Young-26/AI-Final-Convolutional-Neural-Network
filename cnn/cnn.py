@@ -1,10 +1,10 @@
 import numpy as np
 
-from activation import *
-from opt_conv import *
-from encode import one_hot_encode
-from error import cce, cce_grad
-from opt_pooling import maxPool2D, reverse_max2D
+from .activation import *
+from .opt_conv import *
+from .encode import one_hot_encode
+from .error import cce, cce_grad
+from .opt_pooling import maxPool2D, reverse_max2D
 
 def print_samples(sample):
     """Used to see how data is structured"""
@@ -155,6 +155,19 @@ def test_model(X_test, y_test, kernel, weights):
     print("==Model Tested==\n")
 
 
+def make_prediction(X):
+    data = np.load("./cnn/cnn.npz")
+    kernel = data["kernel"]
+    W1 = data["W1"]
+    W2 = data["W2"]
+    weights = [W1, W2]
+    data.close()
+
+    _, output, _, _, _ = forward(X, kernel, weights)
+
+    return np.argmax(output[-1])
+    
+
 def run_model(X_train, y_train, X_test, y_test):
     print("==Initializing Model==")
 
@@ -169,4 +182,4 @@ def run_model(X_train, y_train, X_test, y_test):
     train_model_(X_train, y_train, kernel, weights, 5, 0.1, 60000)
 
     test_model(X_test, y_test, kernel, weights)
-    
+  
