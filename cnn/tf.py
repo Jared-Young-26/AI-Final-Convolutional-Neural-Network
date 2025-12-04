@@ -36,12 +36,12 @@ x_train, y_train = x_train[val_count:], y_train[val_count:]
 # The actual model
 model = models.Sequential([
     # Input 28 x 28 x 1
-    layers.Conv2D(2, (3,3), activation='relu', input_shape=(28,28,1)), # 32 3 x 3 convolutional filters -> 26 x 26 x 32
+    layers.Conv2D(32, (3,3), activation='relu', input_shape=(28,28,1)), # 32 3 x 3 convolutional filters -> 26 x 26 x 32
     layers.MaxPooling2D((2,2)), # -> 13 x 13 x 32
-    layers.Conv2D(4, (3,3), activation='relu'), # 64 3 x 3 convolutional filters -> 11 x 11 x 64
+    layers.Conv2D(64, (3,3), activation='relu'), # 64 3 x 3 convolutional filters -> 11 x 11 x 64
     layers.MaxPooling2D((2,2)), # -> 5 x 5 x 64
     layers.Flatten(), # Combine all 64 5 x 5 layers into 1 "array"
-    layers.Dense(64, activation='relu'),
+    layers.Dense(128, activation='relu'),
     layers.Dropout(0.5), # Try to avoid overfitting
     layers.Dense(10, activation='softmax')
 ])

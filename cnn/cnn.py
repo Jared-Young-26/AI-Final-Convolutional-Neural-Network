@@ -1,5 +1,4 @@
 import numpy as np
-from tensorflow.keras import datasets
 
 from activation import *
 from opt_conv import *
@@ -132,10 +131,9 @@ def train_model_(X_train, y_train, kernel, weights, epochs, learning_rate, sampl
 
     print("==Saving Weights==")
     
-    np_ws = np.array(weights)
-    np.savez('cnn.npz', kernel=kernel, weights=np_ws)
+    np.savez('cnn.npz', kernel=kernel, W1=weights[0], W2=weights[1])
 
-    print("==Weights Saved==")
+    print("==Weights Saved==\n")
 
     return kernel, weights
 
@@ -168,18 +166,7 @@ def run_model(X_train, y_train, X_test, y_test):
 
     print("==Model Initialized==\n")
     
-    train_model_(x_train, y_train, kernel, weights, 5, 0.1, 60000)
+    train_model_(X_train, y_train, kernel, weights, 5, 0.1, 60000)
 
-    test_model(x_test, y_test, kernel, weights)
-
-if __name__ == "__main__":
-    print("==Loading Data==")
-    
-    (x_train, y_train), (x_test, y_test) = datasets.mnist.load_data();
-    x_train = x_train / 255
-    x_test = x_test / 255
-
-    print("==Data Loaded==\n")
-
-    run_model(x_train, y_train, x_test, y_test)
+    test_model(X_test, y_test, kernel, weights)
     
