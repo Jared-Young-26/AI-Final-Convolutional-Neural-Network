@@ -224,7 +224,8 @@ def predict_cnn_single(img28):
     """
 
     # Load CNN model architecture + weights.
-    model = tf.keras.models.load_model("tf_cnn_model.keras")
+    #model = tf.keras.models.load_model("tf_cnn_model.keras")
+    model = tf.keras.models.load_model("tf_cnn_model.keras", compile=False)
 
     # Reshape → batch format expected by Keras.
     x = img28.reshape(1, 28, 28, 1)
@@ -241,7 +242,8 @@ def predict_cnn_single(img28):
 # App header + description.
 st.title("🖊️ Handwritten Digit Recognition Demo")
 st.write("Draw a digit below and compare predictions from:")
-st.write("- Your custom **ANN model**")
+st.write("- Our custom **ANN model**")
+st.write("- Our custom **CNN model**")
 st.write("- Standard **TensorFlow CNN**")
 
 # Import canvas tool for drawing.
