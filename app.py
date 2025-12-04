@@ -295,7 +295,7 @@ if canvas.image_data is not None:
     st.subheader("Predictions")
     col1, col2, col3 = st.columns(3)
     col1.metric("Custom ANN", ann_pred)
-    col2.metric("Custom CNN", ann_pred)
+    col2.metric("Custom CNN", pred3)
     col3.metric("TF CNN", cnn_pred)
 
     st.subheader("Original 28x28 Image")
