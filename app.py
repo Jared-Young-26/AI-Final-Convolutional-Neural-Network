@@ -292,6 +292,11 @@ if canvas.image_data is not None:
     ann_pred = predict_ann_single(img28)
     cnn_pred = predict_cnn_single(img28)
     pred3 = make_prediction(img28)
+    for row in img28:
+        for num in row:
+            print(num, end = ', ')
+        print()
+    print("==================================================================")
 
     # Display side-by-side results.
     st.subheader("Predictions")

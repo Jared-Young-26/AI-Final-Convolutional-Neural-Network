@@ -156,7 +156,7 @@ def test_model(X_test, y_test, kernel, weights):
 
 
 def make_prediction(X):
-    data = np.load("./cnn/cnn.npz")
+    data = np.load("custom_cnn_model.npz")
     kernel = data["kernel"]
     W1 = data["W1"]
     W2 = data["W2"]
