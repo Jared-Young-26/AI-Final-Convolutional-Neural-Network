@@ -154,6 +154,8 @@ def preprocess_canvas(img):
     # Normalize pixel intensity.
     img = img.astype("float32") / 255.0
 
+    img = 1 - img 
+
     return img
 
 
@@ -265,6 +267,9 @@ canvas = st_canvas(
 if canvas.image_data is not None:
     # Convert to uint8 image array.
     img = canvas.image_data.astype("uint8")
+    print("Begin Raw\n")
+    print(img)
+    print("\nEnd Raw")
 
     # Show raw drawing.
     st.image(canvas.image_data, caption="Live Drawing", width=280)
@@ -290,11 +295,19 @@ if canvas.image_data is not None:
     # Compute ANN + CNN predictions
     # -------------------------
     ann_pred = predict_ann_single(img28)
-    cnn_pred = predict_cnn_single(img28)
-    pred3 = make_prediction(img28)
+    tf_pred = predict_cnn_single(img28)
+    cnn_pred, outcomes = make_prediction(img28)
+    print(outcomes)
+    RED = "\033[31m"
+    RESET = "\033[0m"
     for row in img28:
         for num in row:
-            print(num, end = ', ')
+            #num = 1 - num
+            s = f"{num:05.2f}"
+            if num != 0.0:
+                print(f"{RED}{s}{RESET}", end = ' ')
+            else:
+                print(s, end = ' ')
         print()
     print("==================================================================")
 
@@ -302,8 +315,8 @@ if canvas.image_data is not None:
     st.subheader("Predictions")
     col1, col2, col3 = st.columns(3)
     col1.metric("Custom ANN", ann_pred)
-    col2.metric("Custom CNN", pred3)
-    col3.metric("TF CNN", cnn_pred)
+    col2.metric("Custom CNN", cnn_pred)
+    col3.metric("TF CNN", tf_pred)
 
     st.subheader("Original 28x28 Image")
     st.pyplot(viz_original(img28))
@@ -318,3 +331,6 @@ if canvas.image_data is not None:
     st.subheader("Edge-Segment Feature Vector")
     feats = extract_edge_segment_features(img28, grid_rows=8, grid_cols=8)
     st.pyplot(viz_feature_vector(feats))
+
+    st.subheader("Custom CNN Probabilities")
+    st.bar_chart(outcomes)

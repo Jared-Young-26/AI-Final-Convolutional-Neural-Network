@@ -165,7 +165,7 @@ def make_prediction(X):
 
     _, output, _, _, _ = forward(X, kernel, weights)
 
-    return np.argmax(output[-1])
+    return np.argmax(output[-1]), output[-1]
     
 
 def run_model(X_train, y_train, X_test, y_test):
