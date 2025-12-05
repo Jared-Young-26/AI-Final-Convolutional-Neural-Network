@@ -5,7 +5,7 @@ from PIL import Image
 import tensorflow as tf
 import matplotlib.pyplot as plt
 
-from ann import load_model, predict_classes
+from ann import load_model, predict_classes, predict_proba
 from segments import compute_edges, extract_edge_segment_features
 from cnn.cnn import make_prediction
 
@@ -198,9 +198,14 @@ def predict_ann_single(img28):
     print("B1 mean, std:", np.mean(biases[0]), np.std(biases[0]))
     print("B2 mean, std:", np.mean(biases[1]), np.std(biases[1]))
 
-    # Perform ANN classification.
-    pred = predict_classes(feats, weights, biases)[0]
-    return pred
+    # Get probabilities from the ANN
+    probs = predict_proba(feats, weights, biases)  
+    final_activations = probs[0] 
+
+    # Class prediction from probabilities
+    pred = int(np.argmax(final_activations))
+
+    return pred, final_activations
 
 
 
@@ -294,7 +299,7 @@ if canvas.image_data is not None:
     # -------------------------
     # Compute ANN + CNN predictions
     # -------------------------
-    ann_pred = predict_ann_single(img28)
+    ann_pred, ann_outcomes = predict_ann_single(img28)
     tf_pred = predict_cnn_single(img28)
     cnn_pred, outcomes = make_prediction(img28)
     print(outcomes)
@@ -334,3 +339,6 @@ if canvas.image_data is not None:
 
     st.subheader("Custom CNN Probabilities")
     st.bar_chart(outcomes)
+
+    st.subheader("Custom ANN Probabilities")
+    st.bar_chart(ann_outcomes)

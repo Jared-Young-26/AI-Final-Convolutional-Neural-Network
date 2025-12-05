@@ -14,13 +14,13 @@ from segments import extract_edge_segment_features, compute_edges, segment_edge_
 def show_original(img):
     """
     DESCRIPTION:
-        Displays a raw MNIST digit (28×28 grayscale) exactly as it appears
+        Displays a raw MNIST digit (28x28 grayscale) exactly as it appears
         before any preprocessing or transformation. The purpose is to help
         visually compare the original image to the processed edge maps and
         feature vectors.
 
     INPUT:
-        img : 2D numpy array (28×28 float or uint8)
+        img : 2D numpy array (28x28 float or uint8)
             The original handwritten digit.
 
     PROCESSING:
@@ -32,10 +32,10 @@ def show_original(img):
         None (visual side-effect — displays figure)
     """
 
-    plt.imshow(img, cmap="gray")       # Render image in grayscale
-    plt.title("Original Image")        # Give window context
-    plt.axis("off")                    # Hide numerical axes for clarity
-    plt.show()                         # Display the figure immediately
+    plt.imshow(img, cmap="gray")  # Render image in grayscale
+    plt.title("Original Image")  # Give window context
+    plt.axis("off")   # Hide numerical axes for clarity
+    plt.show()  # Display the figure immediately
 
 
 def show_edges(img):
@@ -46,7 +46,7 @@ def show_edges(img):
         the "structure" of the digit before segmentation.
 
     INPUT:
-        img : 2D numpy array (28×28 normalized or uint8)
+        img : 2D numpy array (28x28 normalized or uint8)
             The original image from which edges will be extracted.
 
     PROCESSING:
@@ -58,11 +58,11 @@ def show_edges(img):
         None (visual side-effect — displays figure)
     """
 
-    edges = compute_edges(img)         # Run Sobel filter and threshold
-    plt.imshow(edges, cmap="gray")     # Display binary edges
-    plt.title("Edge Map (Sobel)")      # Title describes the transform
-    plt.axis("off")                    # Remove axes for clarity
-    plt.show()                         # Display the figure
+    edges = compute_edges(img)  # Run Sobel filter and threshold
+    plt.imshow(edges, cmap="gray")  # Display binary edges
+    plt.title("Edge Map (Sobel)")  # Title describes the transform
+    plt.axis("off")  # Remove axes for clarity
+    plt.show()   # Display the figure
 
 
 def show_grid_segments(edges, grid_rows=8, grid_cols=8):
@@ -88,12 +88,12 @@ def show_grid_segments(edges, grid_rows=8, grid_cols=8):
     """
 
     fig, ax = plt.subplots(1, 1, figsize=(4,4))  # Prepare figure and axis
-    ax.imshow(edges, cmap="gray")                # Visualize edges
+    ax.imshow(edges, cmap="gray")     # Visualize edges
     ax.set_title("Grid Segmentation Overlay")    # Explain the visualization
 
-    H, W = edges.shape                           # Height & width of image
-    seg_h = H // grid_rows                        # Height of each grid cell
-    seg_w = W // grid_cols                        # Width of each grid cell
+    H, W = edges.shape    # Height & width of image
+    seg_h = H // grid_rows  # Height of each grid cell
+    seg_w = W // grid_cols   # Width of each grid cell
 
     # Draw horizontal grid lines across the image
     for r in range(grid_rows + 1):
@@ -103,8 +103,8 @@ def show_grid_segments(edges, grid_rows=8, grid_cols=8):
     for c in range(grid_cols + 1):
         ax.axvline(c * seg_w, color="red", linewidth=0.7)
 
-    plt.axis("off")                              # Remove axes
-    plt.show()                                   # Display visualization
+    plt.axis("off")  # Remove axes
+    plt.show()  # Display visualization
 
 
 def visualize_feature_vector(features):
@@ -128,10 +128,10 @@ def visualize_feature_vector(features):
         None (visual side-effect — displays figure)
     """
 
-    plt.bar(range(len(features)), features)       # Draw each density as bar
+    plt.bar(range(len(features)), features)   # Draw each density as bar
     plt.title("Feature Vector (Edge Densities)")  # Visualization title
-    plt.xlabel("Segment Index")                   # X-axis describes region #
-    plt.ylabel("Density")                         # Y-axis shows values (0–1)
+    plt.xlabel("Segment Index")  # X-axis describes region #
+    plt.ylabel("Density")  # Y-axis shows values (0–1)
     plt.show()
 
 
@@ -284,7 +284,7 @@ def run_custom_ann(X_train, y_train, X_test, y_test):
 
     # ----- Compute train & test predictions -----
     preds_train = predict_classes(X_train, weights, biases)
-    preds_test  = predict_classes(X_test,  weights, biases)
+    preds_test = predict_classes(X_test,  weights, biases)
 
     # ----- Accuracy metrics -----
     train_acc = np.mean(preds_train == y_train)
@@ -315,7 +315,7 @@ def run_tf_cnn(x_train, y_train, x_test, y_test):
         y_test  (np.ndarray): Integer class labels for test images.
 
     PROCESSING:
-        * Expand image tensors to include a channel dimension (H×W×1).
+        * Expand image tensors to include a channel dimension (HxWx1).
         * Build a small sequential CNN:
             - Conv2D → ReLU activation
             - MaxPooling
