@@ -34,4 +34,13 @@ def run(train=False, tests=20):
     print("\nFinished")
     
 if __name__ == "__main__":
-    run()
+    t = 'N'
+    train = False
+    t = input("Would you like to train the model? (N, Y) (Do not do if unless you have A LOT of time and the model is already pre-trained with high accuracy) ")
+    if t == 'Y':
+        train = True
+    else:
+        train = False
+    num_tests = int(input("How many predictions? "))
+
+    run(train, num_tests)
