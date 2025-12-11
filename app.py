@@ -208,6 +208,53 @@ def predict_ann_single_digits(img28):
     return pred, final_activations
 
 
+def predict_ann_single_letters(img28):
+    """
+    DESCRIPTION:
+        Generates a digit prediction using the custom manually-implemented
+        artificial neural network. Internally extracts edge-segment features,
+        loads learned weights, and performs forward propagation.
+
+    INPUT:
+        img28 : np.ndarray
+            A 28×28 MNIST-style grayscale float32 image.
+
+    PROCESSING:
+        - Compute the 8×8 grid edge-density features.
+        - Flatten the feature vector to shape (1, 64).
+        - Load model weights + biases from NPZ file.
+        - Print diagnostics (weight means & std) for debugging.
+        - Run ANN forward propagation through predict_classes().
+
+    OUTPUT:
+        int
+            Predicted digit (0–9).
+    """
+
+    # Extract grid-based edge feature vector.
+    feats = extract_edge_segment_features(img28, grid_rows=8, grid_cols=8)
+
+    # Reshape → single-sample input row.
+    feats = feats.reshape(1, -1)
+
+    # Load ANN model parameters.
+    weights, biases = load_model("custom_ann_model_letters.npz")
+
+    # Debugging metrics for verifying training health.
+    print("W1 mean, std:", np.mean(weights[0]), np.std(weights[0]))
+    print("W2 mean, std:", np.mean(weights[1]), np.std(weights[1]))
+    print("B1 mean, std:", np.mean(biases[0]), np.std(biases[0]))
+    print("B2 mean, std:", np.mean(biases[1]), np.std(biases[1]))
+
+    # Get probabilities from the ANN
+    probs = predict_proba(feats, weights, biases)  
+    final_activations = probs[0] 
+
+    # Class prediction from probabilities
+    pred = int(np.argmax(final_activations))
+
+    return pred, final_activations
+
 
 def predict_cnn_single_digits(img28):
     """
@@ -233,6 +280,37 @@ def predict_cnn_single_digits(img28):
     # Load CNN model architecture + weights.
     #model = tf.keras.models.load_model("tf_cnn_model.keras")
     model = tf.keras.models.load_model("tf_cnn_model_digits.keras", compile=False)
+
+    # Reshape → batch format expected by Keras.
+    x = img28.reshape(1, 28, 28, 1)
+
+    # Predict class probabilities & take argmax.
+    return int(np.argmax(model.predict(x)))
+
+def predict_cnn_single_letters(img28):
+    """
+    DESCRIPTION:
+        Produces a digit prediction using the trained TensorFlow CNN model.
+        This serves as the accuracy benchmark against the custom ANN.
+
+    INPUT:
+        img28 : np.ndarray
+            A 28×28 grayscale image (float32) in MNIST format.
+
+    PROCESSING:
+        - Load TensorFlow CNN model from disk.
+        - Reshape image → (1, 28, 28, 1) to match Keras expectations.
+        - Model predicts probability distribution.
+        - Return class with highest probability.
+
+    OUTPUT:
+        int
+            Predicted digit (0–9).
+    """
+
+    # Load CNN model architecture + weights.
+    #model = tf.keras.models.load_model("tf_cnn_model.keras")
+    model = tf.keras.models.load_model("tf_cnn_model_letters.keras", compile=False)
 
     # Reshape → batch format expected by Keras.
     x = img28.reshape(1, 28, 28, 1)
