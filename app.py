@@ -436,6 +436,7 @@ if canvas.image_data is not None:
     st.bar_chart(ann_outcomes)
 
 #=============================Letters Begins Here=============================#
+st.title("🔡 Handwritten Letters Recognition Demo")
 
 # Create interactive drawing area.
 canvas = st_canvas(
@@ -528,7 +529,7 @@ if canvas.image_data is not None:
 # WORDS
 # =================
 
-st.title("Handwritten Word → Text with Bounding Boxes")
+st.title("📝 Handwritten Word → Text with Bounding Boxes")
 
 canvas_result = st_canvas(
     fill_color="rgba(255, 255, 255, 1)",
