@@ -256,6 +256,10 @@ def predict_ann_single_letters(img28):
     return pred, final_activations
 
 
+@st.cache_resource
+def load_tf_digit_cnn():
+    return tf.keras.models.load_model("tf_cnn_model_digits.keras", compile=False)
+
 def predict_cnn_single_digits(img28):
     """
     DESCRIPTION:
@@ -279,13 +283,17 @@ def predict_cnn_single_digits(img28):
 
     # Load CNN model architecture + weights.
     #model = tf.keras.models.load_model("tf_cnn_model.keras")
-    model = tf.keras.models.load_model("tf_cnn_model_digits.keras", compile=False)
+    model = load_tf_digit_cnn()
 
     # Reshape → batch format expected by Keras.
     x = img28.reshape(1, 28, 28, 1)
 
     # Predict class probabilities & take argmax.
     return int(np.argmax(model.predict(x)))
+
+@st.cache_resource
+def load_tf_letter_cnn():
+    return tf.keras.models.load_model("tf_cnn_model_letters.keras", compile=False)
 
 def predict_cnn_single_letters(img28):
     """
@@ -310,7 +318,7 @@ def predict_cnn_single_letters(img28):
 
     # Load CNN model architecture + weights.
     #model = tf.keras.models.load_model("tf_cnn_model.keras")
-    model = tf.keras.models.load_model("tf_cnn_model_letters.keras", compile=False)
+    model = load_tf_letter_cnn()
 
     # Reshape → batch format expected by Keras.
     x = img28.reshape(1, 28, 28, 1)
@@ -530,36 +538,32 @@ canvas_result = st_canvas(
     height=128,
     width=512,
     drawing_mode="freedraw",
-    key="canvas",
+    key="canvas_word",
 )
 
 if st.button("Recognize Word"):
     if canvas_result.image_data is None:
         st.warning("Draw a word first!")
     else:
-        # Original RGBA canvas data
         img = canvas_result.image_data.astype("uint8")
 
-        # 1) Segment into chars + get bounding boxes
+        # Segment into characters + get bounding boxes
         char_imgs, boxes = segment_characters_from_word(img, return_boxes=True)
 
         if not char_imgs:
-            st.warning("No characters detected. Try writing bigger/darker.")
+            st.warning("No characters detected. Try writing bigger / darker / more separated.")
         else:
             letters = []
 
             for char28 in char_imgs:
-                # CNN expects shape (1, 28, 28, 1)
-                char_input = char28.reshape(1, 28, 28, 1)
-                probs = cnn_model.predict(char_input, verbose=0)
-                pred_idx = int(np.argmax(probs, axis=1)[0])
+                # Use your existing CNN letter predictor
+                pred_idx, _ = make_prediction_letters(char28)
                 letters.append(idx_to_letter(pred_idx))
 
             word = "".join(letters)
             st.subheader(f"Predicted text: **{word}**")
 
-            # 2) Draw bounding boxes & labels on the original canvas image
-            # Convert RGBA → BGR for OpenCV
+            # Draw boxes + labels
             if img.shape[2] == 4:
                 vis = cv2.cvtColor(img, cv2.COLOR_RGBA2BGR)
             else:
@@ -567,9 +571,7 @@ if st.button("Recognize Word"):
 
             for (box, letter) in zip(boxes, letters):
                 x, y, w, h = box
-                # rectangle
                 cv2.rectangle(vis, (x, y), (x + w, y + h), (0, 255, 0), 1)
-                # label above box
                 cv2.putText(
                     vis, letter,
                     (x, max(0, y - 5)),
@@ -580,6 +582,5 @@ if st.button("Recognize Word"):
                     lineType=cv2.LINE_AA,
                 )
 
-            # Back to RGB for Streamlit
             vis_rgb = cv2.cvtColor(vis, cv2.COLOR_BGR2RGB)
             st.image(vis_rgb, caption="Detected letters with bounding boxes", use_column_width=True)
