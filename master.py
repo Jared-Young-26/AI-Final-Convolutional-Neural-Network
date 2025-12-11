@@ -342,7 +342,7 @@ def run_custom_ann(X_train, y_train, X_test, y_test, num_classes):
 # 5. RUN TENSORFLOW CNN FOR COMPARISON
 # ------------------------------------------------------
 
-def run_tf_cnn(x_train, y_train, x_test, y_test):
+def run_tf_cnn(x_train, y_train, x_test, y_test, num_classes):
     """
     DESCRIPTION:
         Runs a small Convolutional Neural Network (CNN) using TensorFlow/Keras
