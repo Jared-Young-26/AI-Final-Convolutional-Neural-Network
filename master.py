@@ -160,11 +160,13 @@ def to_one_hot(y, num_classes):
     OUTPUT:
         out (ndarray float32)  : One-hot encoded label matrix of shape (N, num_classes)
     """
+    y = np.asarray(y, dtype=int)
     N = len(y)
     out = np.zeros((N, num_classes), dtype=np.float32)
 
-    # Loop through dataset and set the true class index to 1
     for i, label in enumerate(y):
+        if label < 0 or label >= num_classes:
+            raise ValueError(f"Label {label} out of range for num_classes={num_classes}")
         out[i, label] = 1.0
 
     return out
@@ -174,54 +176,48 @@ def to_one_hot(y, num_classes):
 # 3. LOAD & PREPROCESS MNIST
 # ------------------------------------------------------
 
-def get_emnist_data():
+def get_data(dataset="letters"):
     """
-    DESCRIPTION:
-        Load the EMNIST Letters dataset using TensorFlow Datasets.
-        This dataset contains handwritten letters (A-Z) and is similar
-        in format to MNIST.
-
-    INPUT:
-        None
-
-    PROCESSING:
-        - Use tfds.load() to fetch the EMNIST Letters dataset.
-        - Split into training and test sets.
-        - Convert data from TensorFlow tensors to NumPy arrays.
-        - Squeeze unnecessary dimensions.
-
-    OUTPUT:
-        (x_train, y_train) : Training images and labels as NumPy arrays
-        (x_test, y_test)   : Test images and labels as NumPy arrays
+    Returns:
+        (x_train, y_train), (x_test, y_test), num_classes
+    where y_* are ALWAYS 0-based (0..num_classes-1).
     """
+    if dataset == "digits":
+        # Standard MNIST 0-9
+        (x_train, y_train), (x_test, y_test) = keras_datasets.mnist.load_data()
+        num_classes = 10
 
-    print("Loading EMNIST Letters dataset...")
-    dataset, info = tfds.load('emnist/letters', with_info=True, as_supervised=True)
-    train, test = dataset["train"], dataset["test"]
-    x_train, y_train = [], []
-    x_test, y_test = [], []
+    elif dataset == "letters":
+        # EMNIST Letters 1-26 -> shift to 0-25
+        print("Loading EMNIST Letters dataset...")
+        dataset_tf, info = tfds.load('emnist/letters', with_info=True, as_supervised=True)
+        train, test = dataset_tf["train"], dataset_tf["test"]
 
-    # Collect data
-    for image, label in train:
-        x_train.append(image)
-        y_train.append(label)
+        x_train, y_train = [], []
+        x_test, y_test = [], []
 
-    for image, label in test:
-        x_test.append(image)
-        y_test.append(label)
+        for image, label in train:
+            x_train.append(image)
+            y_train.append(label)
 
-    # Convert lists to NumPy arrays
-    x_train = np.array(x_train)
-    y_train = np.array(y_train)
-    x_test = np.array(x_test)
-    y_test = np.array(y_test)
+        for image, label in test:
+            x_test.append(image)
+            y_test.append(label)
 
-    x_train = np.squeeze(x_train)
-    y_train = np.squeeze(y_train)
-    x_test = np.squeeze(x_test)
-    y_test = np.squeeze(y_test)
+        x_train = np.squeeze(np.array(x_train))
+        x_test  = np.squeeze(np.array(x_test))
+        y_train = np.squeeze(np.array(y_train))
+        y_test  = np.squeeze(np.array(y_test))
 
-    return (x_train, y_train), (x_test, y_test)
+        # EMNIST Letters labels are 1..26 -> make them 0..25
+        y_train = y_train - 1
+        y_test  = y_test - 1
+        num_classes = 26
+
+    else:
+        raise ValueError(f"Unknown dataset: {dataset}")
+
+    return (x_train, y_train), (x_test, y_test), num_classes
 
 def load_and_extract(grid_rows=8, grid_cols=8):
     """
@@ -250,40 +246,36 @@ def load_and_extract(grid_rows=8, grid_cols=8):
         X_train (ndarray)   : Extracted feature vectors for training set
         X_test  (ndarray)   : Extracted feature vectors for test set
     """
-    print("Loading MNIST from TensorFlow...")
-    (x_train, y_train), (x_test, y_test) = get_emnist_data() # datasets.mnist.load_data()
+    print(f"Loading {dataset.upper()} from TensorFlow...")
+    (x_train, y_train), (x_test, y_test), num_classes = get_data(dataset)
 
     print("Normalizing...")
     x_train = x_train.astype("float32") / 255.0
     x_test  = x_test.astype("float32") / 255.0
 
     print("Extracting edge-segment features...")
-    X_train = []
-    X_test = []
+    X_train, X_test = [], []
 
-    # ----- Extract features for training images -----
     for img in x_train:
         feats = extract_edge_segment_features(img, grid_rows, grid_cols)
         X_train.append(feats)
 
-    # ----- Extract features for test images -----
     for img in x_test:
         feats = extract_edge_segment_features(img, grid_rows, grid_cols)
         X_test.append(feats)
 
-    # Convert lists to arrays (shape: N × (grid_rows*grid_cols))
     X_train = np.array(X_train)
     X_test  = np.array(X_test)
 
     print("Feature shape:", X_train.shape)
-    return (x_train, y_train), (x_test, y_test), X_train, X_test
+    return (x_train, y_train), (x_test, y_test), X_train, X_test, num_classes
 
 
 # ------------------------------------------------------
 # 4. TRAIN CUSTOM ANN
 # ------------------------------------------------------
 
-def run_custom_ann(X_train, y_train, X_test, y_test):
+def run_custom_ann(X_train, y_train, X_test, y_test, num_classes):
     """
     DESCRIPTION:
         High-level wrapper that:
@@ -309,34 +301,24 @@ def run_custom_ann(X_train, y_train, X_test, y_test):
         weights (list)       : List of trained weight matrices
         biases (list)        : List of trained bias vectors
     """
-    num_classes = 10
-
     # Convert integer labels into one-hot vectors
     y_train_oh = to_one_hot(y_train, num_classes)
     y_test_oh  = to_one_hot(y_test,  num_classes)
 
     print("\nTraining Custom ANN...")
 
-    # ----- Train the custom ANN -----
     weights, biases, log = train_network(
         X_train, y_train_oh,
-        hidden_layers=[64, 32, 16],   # Adjustable ANN architecture
+        hidden_layers=[64, 32, 16],
         num_outputs=num_classes,
         learning_rate=0.0005,
         bias_value=0.0,
-        max_epochs=1000
+        max_epochs=1000,
     )
 
-    # Print a preview of the training log for visibility
-    print("\nSample Training Log:")
-    for line in log[:10]:
-        print(line)
-
-    # ----- Compute train & test predictions -----
     preds_train = predict_classes(X_train, weights, biases)
-    preds_test = predict_classes(X_test,  weights, biases)
+    preds_test  = predict_classes(X_test,  weights, biases)
 
-    # ----- Accuracy metrics -----
     train_acc = np.mean(preds_train == y_train)
     test_acc  = np.mean(preds_test  == y_test)
 
@@ -379,17 +361,11 @@ def run_tf_cnn(x_train, y_train, x_test, y_test):
     OUTPUT:
         model (tf.keras.Model): The trained Keras CNN model.
     """
-
     print("\nRunning TensorFlow CNN Benchmark...")
-    
-    # Expand dims → TensorFlow expects (batch, height, width, channels)
+
     x_train_exp = np.expand_dims(x_train, -1)
     x_test_exp  = np.expand_dims(x_test,  -1)
 
-    # ----------------------------------------------------------
-    # Build the CNN architecture:
-    #   Conv → Pool → Conv → Pool → Dense → Dropout → Softmax
-    # ----------------------------------------------------------
     model = tf.keras.Sequential([
         tf.keras.layers.Conv2D(32, (3,3), activation='relu', input_shape=(28,28,1)),
         tf.keras.layers.MaxPooling2D((2,2)),
@@ -398,23 +374,18 @@ def run_tf_cnn(x_train, y_train, x_test, y_test):
         tf.keras.layers.Flatten(),
         tf.keras.layers.Dense(128, activation='relu'),
         tf.keras.layers.Dropout(0.5),
-        tf.keras.layers.Dense(10, activation='softmax')
+        tf.keras.layers.Dense(num_classes, activation='softmax'),
     ])
 
-    # Compile with standard parameters for MNIST classification
     model.compile(
         optimizer='adam',
         loss='sparse_categorical_crossentropy',
         metrics=['accuracy']
     )
 
-    # Train the CNN for a small number of epochs (fast benchmark)
     model.fit(x_train_exp, y_train, epochs=3, batch_size=128, verbose=1)
-
-    # Evaluate generalization on the real MNIST test set
     test_loss, acc = model.evaluate(x_test_exp, y_test, verbose=2)
     print(f"\nTF CNN Test Accuracy: {acc:.4f}")
-
     return model
 
 
@@ -423,62 +394,32 @@ def run_tf_cnn(x_train, y_train, x_test, y_test):
 # ------------------------------------------------------
 
 if __name__ == "__main__":
-    """
-    DESCRIPTION:
-        Executes the entire experiment end-to-end:
-        1. Loads MNIST.
-        2. Extracts edge-segment features.
-        3. Trains the custom ANN.
-        4. Trains a TensorFlow CNN as comparison.
-        5. Saves both models.
-        6. Visualizes one sample prediction.
+    # 1. Load data + engineered features
+    (raw_train, y_train), (raw_test, y_test), X_train, X_test, num_classes = load_and_extract(
+        dataset="letters"
+    )
 
-    PROCESSING:
-        * Feature extraction using Sobel + grid segmentation.
-        * One-hot encoding of labels for the ANN.
-        * Train ANN → Save ANN weights.
-        * Train CNN → Save CNN model.
-        * Visualize edges + feature vector on a test sample.
-        * Print predictions from both models.
+    # 2. Train custom ANN
+    preds_test, weights, biases = run_custom_ann(
+        X_train, y_train, X_test, y_test, num_classes
+    )
 
-    OUTPUT:
-        (Printed to console)
-        * ANN accuracy
-        * CNN accuracy
-        * Visualization of sample
-        * Predictions from both models
-    """
+    save_model(f"custom_ann_model_{DATASET}.npz", weights, biases)
 
-    # --- 1. Load MNIST + extract engineered features for ANN ---
-    (raw_train, y_train), (raw_test, y_test), X_train, X_test = load_and_extract()
+    # 3. Train CNN benchmark
+    cnn_model = run_tf_cnn(raw_train, y_train, raw_test, y_test, num_classes)
+    cnn_model.save(f"tf_cnn_model_{DATASET}.keras")
 
-    # --- 2. Train custom ANN on engineered features ---
-    preds_test, weights, biases = run_custom_ann(X_train, y_train, X_test, y_test)
-
-    # Save trained ANN parameters
-    save_model("custom_ann_model_letters.npz", weights, biases)
-
-    # --- 3. Train TensorFlow CNN benchmark ---
-    cnn_model = run_tf_cnn(raw_train, y_train, raw_test, y_test)
-
-    # Save CNN model to disk
-    cnn_model.save("tf_cnn_model_letters.keras")
-
-    # --- 4. Visualize 1 sample prediction ---
+    # 4. Visualize one sample
     idx = 0
-    print("\nVisualizing Example Image...")
-
     img = raw_test[idx]
     edges = compute_edges(img)
 
-    # Visual outputs
     show_original(img)
     show_edges(img)
     show_grid_segments(edges)
     visualize_feature_vector(X_test[idx])
 
-    # Predictions
-    print(f"True label: {y_test[idx]}")
+    print(f"True label (0-based): {y_test[idx]}")
     print(f"Custom ANN prediction: {preds_test[idx]}")
-
     print("TF CNN prediction:", np.argmax(cnn_model.predict(np.expand_dims(img, (0, -1))), axis=1)[0])
