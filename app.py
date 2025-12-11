@@ -472,10 +472,9 @@ if canvas.image_data is not None:
     # -------------------------
     # Compute ANN + CNN predictions
     # -------------------------
-    #ann_pred, ann_outcomes = predict_ann_single(img28)
-    #tf_pred = predict_cnn_single(img28)
+    ann_pred, ann_outcomes = predict_ann_single_letters(img28)
+    tf_pred = predict_cnn_single_letters(img28)
     cnn_pred, outcomes = make_prediction_letters(img28)
-    #cnn_pred, outcomes = make_prediction_digits(img28)
     print(outcomes)
     RED = "\033[31m"
     RESET = "\033[0m"
@@ -493,9 +492,9 @@ if canvas.image_data is not None:
     # Display side-by-side results.
     st.subheader("Predictions")
     col1, col2, col3 = st.columns(3)
-    #col1.metric("Custom ANN", ann_pred)
-    col2.metric("Custom CNN", cnn_pred)
-    #col3.metric("TF CNN", tf_pred)
+    col1.metric("Custom ANN", idx_to_letter(ann_pred))
+    col2.metric("Custom CNN", idx_to_letter(cnn_pred))
+    col3.metric("TF CNN", idx_to_letter(tf_pred))
 
     st.subheader("Original 28x28 Image")
     st.pyplot(viz_original(img28))
