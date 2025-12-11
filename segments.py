@@ -225,3 +225,107 @@ def segment_characters_from_word(img, min_area=20, dilate=True, return_boxes=Fal
     if return_boxes:
         return char_images, boxes
     return char_images
+
+
+def segment_words_from_line(img, min_area=20, dilate=True,
+                            gap_factor=1.5, return_boxes=False):
+    """
+    Segment a single handwritten line into words and characters.
+
+    Returns:
+        word_char_images: list of list of 28x28 images
+            [
+              [char28_word1_char1, char28_word1_char2, ...],
+              [char28_word2_char1, ...],
+              ...
+            ]
+
+        If return_boxes is True, also returns:
+        word_char_boxes: list of list of (x,y,w,h) for each char in each word.
+    """
+    # Reuse the same preprocessing as segment_characters_from_word
+    if len(img.shape) == 3:
+        if img.shape[2] == 4:
+            img = cv2.cvtColor(img, cv2.COLOR_BGRA2BGR)
+        gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+    else:
+        gray = img.copy()
+
+    _, thresh = cv2.threshold(
+        gray, 0, 255,
+        cv2.THRESH_BINARY_INV + cv2.THRESH_OTSU
+    )
+
+    if dilate:
+        kernel = np.ones((3, 3), np.uint8)
+        thresh = cv2.dilate(thresh, kernel, iterations=1)
+
+    contours, _ = cv2.findContours(
+        thresh,
+        mode=cv2.RETR_EXTERNAL,
+        method=cv2.CHAIN_APPROX_SIMPLE
+    )
+
+    boxes = []
+    for cnt in contours:
+        x, y, w, h = cv2.boundingRect(cnt)
+        if w * h < min_area:
+            continue
+        boxes.append((x, y, w, h))
+
+    if not boxes:
+        return ([], []) if return_boxes else []
+
+    # Sort left-to-right
+    boxes.sort(key=lambda b: b[0])
+
+    # --- group boxes into words based on horizontal gap ---
+    widths = [w for (_, _, w, _) in boxes]
+    median_w = np.median(widths)
+    word_gap_threshold = gap_factor * median_w  # gap > this => new word
+
+    words_boxes = []
+    current = [boxes[0]]
+
+    for box in boxes[1:]:
+        x, y, w, h = box
+        prev_x, prev_y, prev_w, prev_h = current[-1]
+        gap = x - (prev_x + prev_w)
+        if gap > word_gap_threshold:
+            # start new word
+            words_boxes.append(current)
+            current = [box]
+        else:
+            current.append(box)
+    words_boxes.append(current)
+
+    # --- build 28x28 images for each char in each word ---
+    word_char_images = []
+    word_char_boxes = []
+
+    for word in words_boxes:
+        char_imgs_this_word = []
+        boxes_this_word = []
+        for (x, y, w, h) in word:
+            char_roi = thresh[y:y+h, x:x+w]
+
+            side = max(w, h)
+            square = np.zeros((side, side), dtype=np.uint8)
+            x_offset = (side - w) // 2
+            y_offset = (side - h) // 2
+            square[y_offset:y_offset+h, x_offset:x_offset+w] = char_roi
+
+            char28 = cv2.resize(square, (28, 28), interpolation=cv2.INTER_AREA)
+            char28 = char28.astype("float32") / 255.0
+            # If you invert for training, do it here:
+            # char28 = 1.0 - char28
+
+            char_imgs_this_word.append(char28)
+            boxes_this_word.append((x, y, w, h))
+
+        word_char_images.append(char_imgs_this_word)
+        word_char_boxes.append(boxes_this_word)
+
+    if return_boxes:
+        return word_char_images, word_char_boxes
+    return word_char_images

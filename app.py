@@ -6,7 +6,7 @@ import tensorflow as tf
 import matplotlib.pyplot as plt
 
 from ann import load_model, predict_classes, predict_proba
-from segments import compute_edges, extract_edge_segment_features, segment_characters_from_word
+from segments import compute_edges, extract_edge_segment_features, segment_characters_from_word, segment_words_from_line
 from cnn.cnn import make_prediction_letters, make_prediction_digits
 
 
@@ -585,3 +585,54 @@ if st.button("Recognize Word"):
 
             vis_rgb = cv2.cvtColor(vis, cv2.COLOR_BGR2RGB)
             st.image(vis_rgb, caption="Detected letters with bounding boxes", use_container_width=True)
+
+st.title("🧾 Handwritten Sentence → Words")
+
+sentence_canvas = st_canvas(
+    fill_color="rgba(255, 255, 255, 1)",
+    stroke_width=10,
+    stroke_color="#000000",
+    background_color="#FFFFFF",
+    height=128,
+    width=800,
+    drawing_mode="freedraw",
+    key="canvas_sentence",
+)
+
+if st.button("Recognize Sentence"):
+    if sentence_canvas.image_data is None:
+        st.warning("Draw a sentence first!")
+    else:
+        img = sentence_canvas.image_data.astype("uint8")
+
+        word_char_imgs, word_char_boxes = segment_words_from_line(
+            img, return_boxes=True
+        )
+
+        if not word_char_imgs:
+            st.warning("No characters detected. Try writing bigger / darker.")
+        else:
+            word_strings = []
+
+            for chars_in_word in word_char_imgs:
+                letters = []
+                for char28 in chars_in_word:
+                    pred_idx, _ = make_prediction_letters(char28)
+                    letters.append(idx_to_letter(pred_idx))
+                word_strings.append("".join(letters))
+
+            sentence = " ".join(word_strings)
+            st.subheader(f"Predicted sentence: **{sentence}**")
+
+            # Visualize word/char boxes on the original image
+            if img.shape[2] == 4:
+                vis = cv2.cvtColor(img, cv2.COLOR_RGBA2BGR)
+            else:
+                vis = img.copy()
+
+            for boxes, word in zip(word_char_boxes, word_strings):
+                for (x, y, w, h) in boxes:
+                    cv2.rectangle(vis, (x, y), (x+w, y+h), (0, 255, 0), 1)
+
+            vis_rgb = cv2.cvtColor(vis, cv2.COLOR_BGR2RGB)
+            st.image(vis_rgb, caption="Segmented words/characters", use_container_width=True)
