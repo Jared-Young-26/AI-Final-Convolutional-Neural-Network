@@ -3,34 +3,20 @@ import numpy as np
 from .activation import *
 from .opt_conv import *
 from .encode import one_hot_encode
-from .error import cce, cce_grad
-from .opt_pooling import maxPool2D, reverse_max2D
-
-def print_samples(sample):
-    """Used to see how data is structured"""
-    RED = "\033[31m"
-    RESET = "\033[0m"
-    assert len(sample) == 28
-    for row in sample:
-        assert len(row) == 28
-        for num in row:
-            s = f"{num:03d}"
-            if num != 0:
-                print(f"{RED}{s}{RESET} ", end = '')
-            else:
-                print(s, end = ' ')
-        print()
-
+from .error import *
+from .opt_pooling import maxPool2D
+from .init import * 
         
 def forward(X, kernel, weights):
     activations = []
         
-    X = X[np.newaxis, :, :]
-    assert X.shape == (1, 28, 28)
+    if (len(X.shape) == 2):
+        X = X[np.newaxis, :, :]
+    assert X.shape == (1, 28, 28), {X.shape}
 
     # Convolution and Pooling
     C1 = relu(conv2D(X, kernel))
-    assert C1.shape == (2, 26, 26)
+    assert C1.shape == (2, 26, 26), f"Expected (2, 26, 26), Got {C1.shape}, Sobel Shape {kernel.shape}"
 
     P1, indices = maxPool2D(C1, (2, 2), (2, 2))
     assert P1.shape == (2, 13, 13)
@@ -43,82 +29,64 @@ def forward(X, kernel, weights):
     #Hidden Flattened Layers
     for j in range(len(weights) - 1):
         F = relu(np.dot(weights[j], activations[-1]))
-        assert F.shape == (64,)
+        #assert F.shape == (128,)
         activations.append(F)
 
     #Output
-    Y_pred = softmax(np.dot(weights[-1], activations[-1]))
-    assert Y_pred.shape == (10,)
+    Y_pred = sigmoid(np.dot(weights[-1], activations[-1]))
+    Y_pred = np.where(Y_pred > 0.85, 1.0, 0.0)
+    assert Y_pred.shape == (26,), {Y_pred.shape}
     activations.append(Y_pred)
 
-    return X, activations, indices, P1.shape, C1.shape
+    return X, activations
 
 
-def backward(X, y, kernel, weights, activations, indices, p_shape, c_shape, learning_rate):
+def backward(X, y, weights, activations, learning_rate):
     full_deltas = []
 
     #Gradient of loss
     loss = cce_grad(y, activations[-1])
-    assert loss.shape == (10,)
+    assert loss.shape == (26,)
 
     #Change Weights Output
     dW = -1 * learning_rate * np.dot(loss.reshape(-1, 1), activations[-2].reshape(-1, 1).T)
-    assert dW.shape == (10, 64)
+    #assert dW.shape == (26, 128)
     full_deltas.append(dW)
 
     #Hidden flat layers
     for j in range(len(weights) - 1, 0, -1):
         loss = relu_derivative(activations[j]) * (np.dot(weights[j].T, loss))
-        assert loss.shape == (64,)
+        #assert loss.shape == (128,)
 
         dW = -1 * learning_rate * np.dot(loss.reshape(-1, 1), activations[j - 1].reshape(-1, 1).T)
-        assert dW.shape == (64, 338)
+        #assert dW.shape == (128, 338)
         full_deltas.append(dW)
-
-    #Loss first flattened layer
-    loss = np.dot(weights[0].T, loss)
-    assert loss.shape == (338,)
-
-    #No weights here in flattening layer so no updates
-
-    #Loss into same shape as pooling
-    loss = loss.reshape(p_shape)
-    assert loss.shape == (2, 13, 13)
-
-    #No weights here either in pooling layer so no updates
-
-    #Expand loss with reverse pooling
-    loss = reverse_max2D(loss, indices, (2, 2), (2, 2), c_shape)
-    loss = np.expand_dims(loss, axis=0)
-    assert loss.shape == (1, 2, 26, 26)
-
-    #Kernel updates
-    dkernel = -1 * learning_rate * conv2D(X, np.flip(loss, axis=(-2, -1)))
-    kernel += dkernel
-
+    
     #Flat weight updates
-    for j in range(len(weights)):
-        weights[j] += full_deltas[len(full_deltas) - 1 - j]
+    for i in range(len(weights)):
+        weights[i] += full_deltas[len(full_deltas) - 1 - i]
 
-    return kernel, weights
+    return weights
 
 
-def train_model_(X_train, y_train, kernel, weights, epochs, learning_rate, sample_size):
+def train_model_(
+    X_train, y_train, weights, kernel, epochs, learning_rate, sample_size
+):
     print("==Training Model==")
-
+    
     for it in range(epochs):
         avg_err = 0
         acc = 0
         for i, (X, y) in enumerate(zip(X_train, y_train)):
             #Forward#
-            X_, activations, indices, p_shape, c_shape = forward(X, kernel, weights)
+            X_, activations, = forward(X, kernel, weights)
 
-            y_true = one_hot_encode(y, 10)
+            y_true = one_hot_encode(y, 26) #Factor this out
             avg_err += cce(y_true, activations[-1])
             acc += (np.argmax(activations[-1]) == np.argmax(y_true))
 
             #Backward#
-            kernel, weights = backward(X_, y_true, kernel, weights, activations, indices, p_shape, c_shape, learning_rate)
+            weights = backward(X_, y_true, weights, activations, learning_rate)
             
             if (i >= sample_size):
                 break
@@ -131,55 +99,62 @@ def train_model_(X_train, y_train, kernel, weights, epochs, learning_rate, sampl
 
     print("==Saving Weights==")
     
-    np.savez('cnn.npz', kernel=kernel, W1=weights[0], W2=weights[1])
+    np.savez('custom_cnn_model_flat_no_sigmoid.npz', kernel=kernel, W1=weights[0], W2=weights[1], W3=weights[2])
 
     print("==Weights Saved==\n")
 
-    return kernel, weights
+    return weights
 
 
-def test_model(X_test, y_test, kernel, weights):
+def test_model(X_test, y_test, weights, kernel):
     print("==Testing Model==")
 
     acc = 0
     for X, y in zip(X_test, y_test):
         #Forward#
-        _, activations, _, _, _ = forward(X, kernel, weights)
+        _, activations = forward(X, weights, kernel)
 
-        y_true = one_hot_encode(y, 10)
+        y_true = one_hot_encode(y, 26)
         acc += (np.argmax(activations[-1]) == np.argmax(y_true))
 
-    acc /= 10000
+    acc /= 14800
     print(f"Testing Accuracy: {acc}")
 
     print("==Model Tested==\n")
 
 
 def make_prediction(X):
-    data = np.load("custom_cnn_model.npz")
+    data = np.load("custom_model.npz")
     kernel = data["kernel"]
     W1 = data["W1"]
     W2 = data["W2"]
-    weights = [W1, W2]
+    W3 = data["W3"]
+    weights = [W1, W2, W3]
     data.close()
 
-    _, output, _, _, _ = forward(X, kernel, weights)
+    _, output = forward(X, kernel, weights)
 
     return np.argmax(output[-1]), output[-1]
     
 
-def run_model(X_train, y_train, X_test, y_test):
-    print("==Initializing Model==")
+def run_model(
+    X_train, y_train, X_test, y_test, epochs, learning_rate, samples
+):
+    print("==Initializing Model Sobel Filter with Random Weights==")
 
-    kernel = np.random.uniform(-0.5, 0.5, (2, 1, 3, 3))
+    kernel = sobel()
 
-    W1 = np.random.uniform(-0.5, 0.5, (64, 338))
-    W2 = np.random.uniform(-0.5, 0.5, (10, 64))
-    weights = [W1, W2]
-
+    W1 = he_init(128, 338)
+    W2 = he_init(64, 128)
+    W3 = he_init(26, 64)
+    weights = [W1, W2, W3]
     print("==Model Initialized==\n")
     
-    train_model_(X_train, y_train, kernel, weights, 5, 0.1, 60000)
+    train_model_(
+        X_train, y_train, 
+        weights, kernel,
+        epochs, learning_rate, samples
+    )
 
     test_model(X_test, y_test, kernel, weights)
   

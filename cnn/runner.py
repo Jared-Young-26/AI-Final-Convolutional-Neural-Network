@@ -11,7 +11,7 @@ if __name__ == "__main__":
 
     print("==Data Loaded==\n")
 
-    #run_model(x_train, y_train, x_test, y_test)
+    run_model(x_train, y_train, x_test, y_test)
 
     print(make_prediction(x_test[100]))
     print(y_test[100])
