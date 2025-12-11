@@ -435,7 +435,10 @@ if canvas.image_data is not None:
     st.subheader("Custom ANN Probabilities")
     st.bar_chart(ann_outcomes)
 
-#=============================Letters Begins Here=============================#
+# ===============
+# LETTERS
+# ===============
+
 st.title("🔡 Handwritten Letters Recognition Demo")
 
 # Create interactive drawing area.
@@ -585,6 +588,10 @@ if st.button("Recognize Word"):
 
             vis_rgb = cv2.cvtColor(vis, cv2.COLOR_BGR2RGB)
             st.image(vis_rgb, caption="Detected letters with bounding boxes", use_container_width=True)
+
+# =================
+# SENTENCES
+# =================
 
 st.title("🧾 Handwritten Sentence → Words")
 
