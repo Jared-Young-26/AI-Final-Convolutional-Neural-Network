@@ -583,4 +583,4 @@ if st.button("Recognize Word"):
                 )
 
             vis_rgb = cv2.cvtColor(vis, cv2.COLOR_BGR2RGB)
-            st.image(vis_rgb, caption="Detected letters with bounding boxes", use_column_width=True)
+            st.image(vis_rgb, caption="Detected letters with bounding boxes", use_container_width=True)
