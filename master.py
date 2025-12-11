@@ -2,6 +2,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import tensorflow as tf
 
+import tensorflow_datasets as tfds
 from tensorflow.keras import datasets
 from ann import train_network, predict_classes, save_model, load_model
 from segments import extract_edge_segment_features, compute_edges, segment_edge_image
@@ -173,6 +174,55 @@ def to_one_hot(y, num_classes):
 # 3. LOAD & PREPROCESS MNIST
 # ------------------------------------------------------
 
+def get_emnist_data():
+    """
+    DESCRIPTION:
+        Load the EMNIST Letters dataset using TensorFlow Datasets.
+        This dataset contains handwritten letters (A-Z) and is similar
+        in format to MNIST.
+
+    INPUT:
+        None
+
+    PROCESSING:
+        - Use tfds.load() to fetch the EMNIST Letters dataset.
+        - Split into training and test sets.
+        - Convert data from TensorFlow tensors to NumPy arrays.
+        - Squeeze unnecessary dimensions.
+
+    OUTPUT:
+        (x_train, y_train) : Training images and labels as NumPy arrays
+        (x_test, y_test)   : Test images and labels as NumPy arrays
+    """
+
+    print("Loading EMNIST Letters dataset...")
+    dataset, info = tfds.load('emnist/letters', with_info=True, as_supervised=True)
+    train, test = dataset["train"], dataset["test"]
+    x_train, y_train = [], []
+    x_test, y_test = [], []
+
+    # Collect data
+    for image, label in train:
+        x_train.append(image)
+        y_train.append(label)
+
+    for image, label in test:
+        x_test.append(image)
+        y_test.append(label)
+
+    # Convert lists to NumPy arrays
+    x_train = np.array(x_train)
+    y_train = np.array(y_train)
+    x_test = np.array(x_test)
+    y_test = np.array(y_test)
+
+    x_train = np.squeeze(x_train)
+    y_train = np.squeeze(y_train)
+    x_test = np.squeeze(x_test)
+    y_test = np.squeeze(y_test)
+
+    return (x_train, y_train), (x_test, y_test)
+
 def load_and_extract(grid_rows=8, grid_cols=8):
     """
     DESCRIPTION:
@@ -201,7 +251,7 @@ def load_and_extract(grid_rows=8, grid_cols=8):
         X_test  (ndarray)   : Extracted feature vectors for test set
     """
     print("Loading MNIST from TensorFlow...")
-    (x_train, y_train), (x_test, y_test) = datasets.mnist.load_data()
+    (x_train, y_train), (x_test, y_test) = get_emnist_data() # datasets.mnist.load_data()
 
     print("Normalizing...")
     x_train = x_train.astype("float32") / 255.0
@@ -406,13 +456,13 @@ if __name__ == "__main__":
     preds_test, weights, biases = run_custom_ann(X_train, y_train, X_test, y_test)
 
     # Save trained ANN parameters
-    save_model("custom_ann_model.npz", weights, biases)
+    save_model("custom_ann_model_letters.npz", weights, biases)
 
     # --- 3. Train TensorFlow CNN benchmark ---
     cnn_model = run_tf_cnn(raw_train, y_train, raw_test, y_test)
 
     # Save CNN model to disk
-    cnn_model.save("tf_cnn_model.keras")
+    cnn_model.save("tf_cnn_model_letters.keras")
 
     # --- 4. Visualize 1 sample prediction ---
     idx = 0
