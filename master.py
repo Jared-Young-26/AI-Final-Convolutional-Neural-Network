@@ -7,6 +7,15 @@ from tensorflow.keras import datasets
 from ann import train_network, predict_classes, save_model, load_model
 from segments import extract_edge_segment_features, compute_edges, segment_edge_image
 
+# -------------------------------------
+# DATASET CONFIGURATION
+# -------------------------------------
+
+# Options:
+#   "digits"  → MNIST 0–9
+#   "letters" → EMNIST Letters A–Z (labels 1–26, automatically shifted to 0–25)
+
+DATASET = "letters"
 
 # ------------------------------------------------------
 # 1. VISUALIZATION UTILITIES
@@ -219,7 +228,7 @@ def get_data(dataset="letters"):
 
     return (x_train, y_train), (x_test, y_test), num_classes
 
-def load_and_extract(dataset="digits",grid_rows=8, grid_cols=8):
+def load_and_extract(dataset=DATASET,grid_rows=8, grid_cols=8):
     """
     DESCRIPTION:
         Load MNIST from TensorFlow, normalize pixel intensity,
@@ -396,7 +405,7 @@ def run_tf_cnn(x_train, y_train, x_test, y_test):
 if __name__ == "__main__":
     # 1. Load data + engineered features
     (raw_train, y_train), (raw_test, y_test), X_train, X_test, num_classes = load_and_extract(
-        dataset="letters"
+        dataset=DATASET
     )
 
     # 2. Train custom ANN
