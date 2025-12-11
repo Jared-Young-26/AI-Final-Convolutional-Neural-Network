@@ -1,3 +1,4 @@
+import cv2
 import numpy as np
 
 def compute_edges(image, threshold=0.001):
@@ -156,3 +157,71 @@ def extract_edge_segment_features(image, grid_rows=8, grid_cols=8, threshold=0.0
     features = segment_edge_image(edges, grid_rows, grid_cols)
 
     return features
+
+def segment_characters_from_word(img, min_area=20, dilate=True, return_boxes=False):
+    """
+    Given a canvas image with multiple handwritten characters,
+    return a list of 28x28 normalized character images,
+    optionally also the bounding boxes in the original image.
+
+    Returns:
+        if return_boxes is False:
+            [char28, char28, ...]
+        if return_boxes is True:
+            ([char28, ...], [(x,y,w,h), ...])
+    """
+    # Handle RGBA / RGB / grayscale
+    if len(img.shape) == 3:
+        if img.shape[2] == 4:
+            img = cv2.cvtColor(img, cv2.COLOR_BGRA2BGR)
+        gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+    else:
+        gray = img.copy()
+
+    # Threshold: white background, dark ink -> invert so ink = 255
+    _, thresh = cv2.threshold(
+        gray, 0, 255,
+        cv2.THRESH_BINARY_INV + cv2.THRESH_OTSU
+    )
+
+    if dilate:
+        kernel = np.ones((3, 3), np.uint8)
+        thresh = cv2.dilate(thresh, kernel, iterations=1)
+
+    contours, _ = cv2.findContours(
+        thresh,
+        mode=cv2.RETR_EXTERNAL,
+        method=cv2.CHAIN_APPROX_SIMPLE
+    )
+
+    boxes = []
+    for cnt in contours:
+        x, y, w, h = cv2.boundingRect(cnt)
+        if w * h < min_area:
+            continue
+        boxes.append((x, y, w, h))
+
+    # sort left-to-right
+    boxes.sort(key=lambda b: b[0])
+
+    char_images = []
+    for (x, y, w, h) in boxes:
+        char_roi = thresh[y:y+h, x:x+w]  # binary
+
+        side = max(w, h)
+        square = np.zeros((side, side), dtype=np.uint8)
+        x_offset = (side - w) // 2
+        y_offset = (side - h) // 2
+        square[y_offset:y_offset+h, x_offset:x_offset+w] = char_roi
+
+        char28 = cv2.resize(square, (28, 28), interpolation=cv2.INTER_AREA)
+        char28 = char28.astype("float32") / 255.0
+
+        # If your training uses white-on-black vs black-on-white, adjust here:
+        # char28 = 1.0 - char28
+
+        char_images.append(char28)
+
+    if return_boxes:
+        return char_images, boxes
+    return char_images

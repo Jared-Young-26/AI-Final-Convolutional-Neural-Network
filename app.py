@@ -6,7 +6,7 @@ import tensorflow as tf
 import matplotlib.pyplot as plt
 
 from ann import load_model, predict_classes, predict_proba
-from segments import compute_edges, extract_edge_segment_features
+from segments import compute_edges, extract_edge_segment_features, segment_characters_from_word
 from cnn.cnn import make_prediction_letters, make_prediction_digits
 
 
@@ -160,7 +160,7 @@ def preprocess_canvas(img):
 
 
 
-def predict_ann_single(img28):
+def predict_ann_single_digits(img28):
     """
     DESCRIPTION:
         Generates a digit prediction using the custom manually-implemented
@@ -209,7 +209,7 @@ def predict_ann_single(img28):
 
 
 
-def predict_cnn_single(img28):
+def predict_cnn_single_digits(img28):
     """
     DESCRIPTION:
         Produces a digit prediction using the trained TensorFlow CNN model.
@@ -232,7 +232,7 @@ def predict_cnn_single(img28):
 
     # Load CNN model architecture + weights.
     #model = tf.keras.models.load_model("tf_cnn_model.keras")
-    model = tf.keras.models.load_model("tf_cnn_model.keras", compile=False)
+    model = tf.keras.models.load_model("tf_cnn_model_digits.keras", compile=False)
 
     # Reshape → batch format expected by Keras.
     x = img28.reshape(1, 28, 28, 1)
@@ -240,10 +240,16 @@ def predict_cnn_single(img28):
     # Predict class probabilities & take argmax.
     return int(np.argmax(model.predict(x)))
 
-
+def idx_to_letter(idx: int) -> str:
+    # 0 -> 'A', 1 -> 'B', ..., 25 -> 'Z'
+    return chr(ord('A') + int(idx))
 
 # ======================
 # Streamlit App Layout
+# ======================
+
+# ======================
+# DIGITS
 # ======================
 
 # App header + description.
@@ -299,8 +305,8 @@ if canvas.image_data is not None:
     # -------------------------
     # Compute ANN + CNN predictions
     # -------------------------
-    ann_pred, ann_outcomes = predict_ann_single(img28)
-    tf_pred = predict_cnn_single(img28)
+    ann_pred, ann_outcomes = predict_ann_single_digits(img28)
+    tf_pred = predict_cnn_single_digits(img28)
     cnn_pred, outcomes = make_prediction_digits(img28)
     print(outcomes)
     RED = "\033[31m"
@@ -372,8 +378,8 @@ if canvas.image_data is not None:
     img28 = preprocess_canvas(img)
 
     # Display preprocessed image for verification.
-    #st.subheader("Processed 28×28 Image")
-    #st.image(img28, width=150, clamp=True)
+    st.subheader("Processed 28×28 Image")
+    st.image(img28, width=150, clamp=True)
 
     print("RAW IMG SHAPE:", img28.shape)
 
@@ -430,5 +436,73 @@ if canvas.image_data is not None:
     st.subheader("Custom CNN Probabilities")
     st.bar_chart(outcomes)
 
-    #st.subheader("Custom ANN Probabilities")
-    #st.bar_chart(ann_outcomes)
+    st.subheader("Custom ANN Probabilities")
+    st.bar_chart(ann_outcomes)
+
+# =================
+# WORDS
+# =================
+
+st.title("Handwritten Word → Text with Bounding Boxes")
+
+canvas_result = st_canvas(
+    fill_color="rgba(255, 255, 255, 1)",
+    stroke_width=10,
+    stroke_color="#000000",
+    background_color="#FFFFFF",
+    height=128,
+    width=512,
+    drawing_mode="freedraw",
+    key="canvas",
+)
+
+if st.button("Recognize Word"):
+    if canvas_result.image_data is None:
+        st.warning("Draw a word first!")
+    else:
+        # Original RGBA canvas data
+        img = canvas_result.image_data.astype("uint8")
+
+        # 1) Segment into chars + get bounding boxes
+        char_imgs, boxes = segment_characters_from_word(img, return_boxes=True)
+
+        if not char_imgs:
+            st.warning("No characters detected. Try writing bigger/darker.")
+        else:
+            letters = []
+
+            for char28 in char_imgs:
+                # CNN expects shape (1, 28, 28, 1)
+                char_input = char28.reshape(1, 28, 28, 1)
+                probs = cnn_model.predict(char_input, verbose=0)
+                pred_idx = int(np.argmax(probs, axis=1)[0])
+                letters.append(idx_to_letter(pred_idx))
+
+            word = "".join(letters)
+            st.subheader(f"Predicted text: **{word}**")
+
+            # 2) Draw bounding boxes & labels on the original canvas image
+            # Convert RGBA → BGR for OpenCV
+            if img.shape[2] == 4:
+                vis = cv2.cvtColor(img, cv2.COLOR_RGBA2BGR)
+            else:
+                vis = img.copy()
+
+            for (box, letter) in zip(boxes, letters):
+                x, y, w, h = box
+                # rectangle
+                cv2.rectangle(vis, (x, y), (x + w, y + h), (0, 255, 0), 1)
+                # label above box
+                cv2.putText(
+                    vis, letter,
+                    (x, max(0, y - 5)),
+                    cv2.FONT_HERSHEY_SIMPLEX,
+                    0.7,
+                    (255, 0, 0),
+                    1,
+                    lineType=cv2.LINE_AA,
+                )
+
+            # Back to RGB for Streamlit
+            vis_rgb = cv2.cvtColor(vis, cv2.COLOR_BGR2RGB)
+            st.image(vis_rgb, caption="Detected letters with bounding boxes", use_column_width=True)
