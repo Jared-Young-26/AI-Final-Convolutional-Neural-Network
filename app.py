@@ -7,7 +7,7 @@ import matplotlib.pyplot as plt
 
 from ann import load_model, predict_classes, predict_proba
 from segments import compute_edges, extract_edge_segment_features
-from cnn.cnn import make_prediction
+from cnn.cnn import make_prediction_letters, make_prediction_digits
 
 
 # ------------------------------------------------------
@@ -190,7 +190,7 @@ def predict_ann_single(img28):
     feats = feats.reshape(1, -1)
 
     # Load ANN model parameters.
-    weights, biases = load_model("custom_ann_model.npz")
+    weights, biases = load_model("custom_ann_model_digits.npz")
 
     # Debugging metrics for verifying training health.
     print("W1 mean, std:", np.mean(weights[0]), np.std(weights[0]))
@@ -301,7 +301,7 @@ if canvas.image_data is not None:
     # -------------------------
     ann_pred, ann_outcomes = predict_ann_single(img28)
     tf_pred = predict_cnn_single(img28)
-    cnn_pred, outcomes = make_prediction(img28)
+    cnn_pred, outcomes = make_prediction_digits(img28)
     print(outcomes)
     RED = "\033[31m"
     RESET = "\033[0m"
@@ -342,3 +342,93 @@ if canvas.image_data is not None:
 
     st.subheader("Custom ANN Probabilities")
     st.bar_chart(ann_outcomes)
+
+#=============================Letters Begins Here=============================#
+
+# Create interactive drawing area.
+canvas = st_canvas(
+    fill_color="rgba(255,255,255,1)",
+    stroke_width=10,
+    stroke_color="#000000",
+    background_color="#FFFFFF",
+    width=280,
+    height=280,
+    drawing_mode="freedraw",
+    key="canvas_letters"
+)
+
+# When a drawing exists on the canvas...
+if canvas.image_data is not None:
+    # Convert to uint8 image array.
+    img = canvas.image_data.astype("uint8")
+    print("Begin Raw\n")
+    print(img)
+    print("\nEnd Raw")
+
+    # Show raw drawing.
+    st.image(canvas.image_data, caption="Live Drawing", width=280)
+
+    # Convert to MNIST-style.
+    img28 = preprocess_canvas(img)
+
+    # Display preprocessed image for verification.
+    #st.subheader("Processed 28×28 Image")
+    #st.image(img28, width=150, clamp=True)
+
+    print("RAW IMG SHAPE:", img28.shape)
+
+    # Compute feature vector for debugging.
+    feats = extract_edge_segment_features(img28, grid_rows=8, grid_cols=8)
+
+    print("FEATURES:", feats)
+    print("FEATURE VECTOR SUM:", np.sum(feats))
+    print("FEATURE VECTOR MAX:", np.max(feats))
+    print("FEATURE VECTOR MIN:", np.min(feats))
+
+    # -------------------------
+    # Compute ANN + CNN predictions
+    # -------------------------
+    #ann_pred, ann_outcomes = predict_ann_single(img28)
+    #tf_pred = predict_cnn_single(img28)
+    cnn_pred, outcomes = make_prediction_letters(img28)
+    #cnn_pred, outcomes = make_prediction_digits(img28)
+    print(outcomes)
+    RED = "\033[31m"
+    RESET = "\033[0m"
+    for row in img28:
+        for num in row:
+            #num = 1 - num
+            s = f"{num:05.2f}"
+            if num != 0.0:
+                print(f"{RED}{s}{RESET}", end = ' ')
+            else:
+                print(s, end = ' ')
+        print()
+    print("==================================================================")
+
+    # Display side-by-side results.
+    st.subheader("Predictions")
+    col1, col2, col3 = st.columns(3)
+    #col1.metric("Custom ANN", ann_pred)
+    col2.metric("Custom CNN", cnn_pred)
+    #col3.metric("TF CNN", tf_pred)
+
+    st.subheader("Original 28x28 Image")
+    st.pyplot(viz_original(img28))
+
+    st.subheader("Sobel Edge Map")
+    edges = compute_edges(img28)
+    st.pyplot(viz_edges(img28))
+
+    st.subheader("Grid Segmentation Overlay")
+    st.pyplot(viz_grid_segments(edges, grid_rows=8, grid_cols=8))
+
+    st.subheader("Edge-Segment Feature Vector")
+    feats = extract_edge_segment_features(img28, grid_rows=8, grid_cols=8)
+    st.pyplot(viz_feature_vector(feats))
+
+    st.subheader("Custom CNN Probabilities")
+    st.bar_chart(outcomes)
+
+    #st.subheader("Custom ANN Probabilities")
+    #st.bar_chart(ann_outcomes)

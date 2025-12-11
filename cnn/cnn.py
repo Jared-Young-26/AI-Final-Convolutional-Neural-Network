@@ -33,9 +33,9 @@ def forward(X, kernel, weights):
         activations.append(F)
 
     #Output
-    Y_pred = sigmoid(np.dot(weights[-1], activations[-1]))
-    Y_pred = np.where(Y_pred > 0.85, 1.0, 0.0)
-    assert Y_pred.shape == (26,), {Y_pred.shape}
+    Y_pred = softmax(np.dot(weights[-1], activations[-1]))
+    #Y_pred = np.where(Y_pred > 0.85, 1.0, 0.0)
+    #assert Y_pred.shape == (26,), {Y_pred.shape}
     activations.append(Y_pred)
 
     return X, activations
@@ -46,7 +46,7 @@ def backward(X, y, weights, activations, learning_rate):
 
     #Gradient of loss
     loss = cce_grad(y, activations[-1])
-    assert loss.shape == (26,)
+    #assert loss.shape == (26,)
 
     #Change Weights Output
     dW = -1 * learning_rate * np.dot(loss.reshape(-1, 1), activations[-2].reshape(-1, 1).T)
@@ -99,7 +99,7 @@ def train_model_(
 
     print("==Saving Weights==")
     
-    np.savez('custom_cnn_model_flat_no_sigmoid.npz', kernel=kernel, W1=weights[0], W2=weights[1], W3=weights[2])
+    np.savez('my_test_model.npz', kernel=kernel, W1=weights[0], W2=weights[1], W3=weights[2])
 
     print("==Weights Saved==\n")
 
@@ -123,13 +123,25 @@ def test_model(X_test, y_test, weights, kernel):
     print("==Model Tested==\n")
 
 
-def make_prediction(X):
-    data = np.load("custom_model.npz")
+def make_prediction_letters(X):
+    data = np.load("custom_cnn_model_letters.npz")
     kernel = data["kernel"]
     W1 = data["W1"]
     W2 = data["W2"]
     W3 = data["W3"]
     weights = [W1, W2, W3]
+    data.close()
+
+    _, output = forward(X, kernel, weights)
+
+    return np.argmax(output[-1]), output[-1]
+
+def make_prediction_digits(X):
+    data = np.load("custom_cnn_model_digits.npz")
+    kernel = data["kernel"]
+    W1 = data["W1"]
+    W2 = data["W2"]
+    weights = [W1, W2]
     data.close()
 
     _, output = forward(X, kernel, weights)
