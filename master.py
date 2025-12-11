@@ -219,7 +219,7 @@ def get_data(dataset="letters"):
 
     return (x_train, y_train), (x_test, y_test), num_classes
 
-def load_and_extract(grid_rows=8, grid_cols=8):
+def load_and_extract(dataset="digits",grid_rows=8, grid_cols=8):
     """
     DESCRIPTION:
         Load MNIST from TensorFlow, normalize pixel intensity,
