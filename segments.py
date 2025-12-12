@@ -160,34 +160,76 @@ def extract_edge_segment_features(image, grid_rows=8, grid_cols=8, threshold=0.0
 
 def segment_characters_from_word(img, min_area=20, dilate=True, return_boxes=False):
     """
-    Given a canvas image with multiple handwritten characters,
-    return a list of 28x28 normalized character images,
-    optionally also the bounding boxes in the original image.
+    DESCRIPTION:
+        Extracts individual handwritten characters from a word-level image.
+        Performs thresholding, contour detection, bounding-box extraction,
+        and spatial normalization to produce MNIST-style 28×28 character patches.
 
-    Returns:
-        if return_boxes is False:
+    INPUT:
+        img (np.ndarray):
+            Input image array (grayscale, RGB, or RGBA).
+        min_area (int):
+            Minimum bounding-box area required to accept a contour as a character.
+        dilate (bool):
+            Whether to apply morphological dilation to thicken strokes and improve
+            contour consistency.
+        return_boxes (bool):
+            If True, returns both the processed character images and their bounding boxes.
+
+    PROCESSING:
+        - Convert input to grayscale.
+        - Apply Otsu thresholding + inversion to isolate foreground ink.
+        - Optionally dilate the ink to connect broken strokes.
+        - Detect external contours and extract bounding rectangles.
+        - Filter out small noise components below min_area.
+        - Sort extracted boxes left-to-right for natural reading order.
+        - For each box:
+            * Crop the region of interest.
+            * Embed into a square canvas to preserve aspect ratio.
+            * Resize to 28×28.
+            * Normalize pixel intensities to [0,1].
+
+    OUTPUT:
+        If return_boxes=False:
             [char28, char28, ...]
-        if return_boxes is True:
-            ([char28, ...], [(x,y,w,h), ...])
+        If return_boxes=True:
+            ([char28, ...], [(x, y, w, h), ...])
     """
-    # Handle RGBA / RGB / grayscale
+
+    # --------------------------------------------------
+    # Convert to grayscale (handles RGB and RGBA cases)
+    # --------------------------------------------------
     if len(img.shape) == 3:
+        # If alpha channel exists (BGRA), strip it
         if img.shape[2] == 4:
             img = cv2.cvtColor(img, cv2.COLOR_BGRA2BGR)
+        # Convert BGR to grayscale
         gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
     else:
+        # Already grayscale
         gray = img.copy()
 
-    # Threshold: white background, dark ink -> invert so ink = 255
+    # --------------------------------------------------
+    # Threshold image:
+    # - Otsu determines optimal threshold automatically.
+    # - THRESH_BINARY_INV makes ink = white (255), background = black (0).
+    # --------------------------------------------------
     _, thresh = cv2.threshold(
         gray, 0, 255,
         cv2.THRESH_BINARY_INV + cv2.THRESH_OTSU
     )
 
+    # --------------------------------------------------
+    # Optional dilation to merge gaps in handwriting
+    # and ensure contours are cleaner.
+    # --------------------------------------------------
     if dilate:
         kernel = np.ones((3, 3), np.uint8)
         thresh = cv2.dilate(thresh, kernel, iterations=1)
 
+    # --------------------------------------------------
+    # Extract outer contours — each contour ideally represents one character
+    # --------------------------------------------------
     contours, _ = cv2.findContours(
         thresh,
         mode=cv2.RETR_EXTERNAL,
@@ -197,69 +239,144 @@ def segment_characters_from_word(img, min_area=20, dilate=True, return_boxes=Fal
     boxes = []
     for cnt in contours:
         x, y, w, h = cv2.boundingRect(cnt)
+
+        # Filter out very tiny specks (noise)
         if w * h < min_area:
             continue
+
         boxes.append((x, y, w, h))
 
-    # sort left-to-right
+    # --------------------------------------------------
+    # Sort characters left → right so output aligns with reading order
+    # --------------------------------------------------
     boxes.sort(key=lambda b: b[0])
 
     char_images = []
-    for (x, y, w, h) in boxes:
-        char_roi = thresh[y:y+h, x:x+w]  # binary
 
+    # --------------------------------------------------
+    # Convert each bounding box into a normalized 28×28 patch
+    # --------------------------------------------------
+    for (x, y, w, h) in boxes:
+        # Crop the character region
+        char_roi = thresh[y:y+h, x:x+w]
+
+        # Make bounding area square by padding the shorter side
         side = max(w, h)
         square = np.zeros((side, side), dtype=np.uint8)
+
+        # Center the cropped ROI inside the square
         x_offset = (side - w) // 2
         y_offset = (side - h) // 2
         square[y_offset:y_offset+h, x_offset:x_offset+w] = char_roi
 
+        # Resize to MNIST-standard dimensions
         char28 = cv2.resize(square, (28, 28), interpolation=cv2.INTER_AREA)
+
+        # Normalize to 0–1 float
         char28 = char28.astype("float32") / 255.0
 
-        # If your training uses white-on-black vs black-on-white, adjust here:
+        # If training assumed inverted MNIST style, flip here:
         # char28 = 1.0 - char28
 
         char_images.append(char28)
 
+    # --------------------------------------------------
+    # Return format depends on whether bounding boxes are requested
+    # --------------------------------------------------
     if return_boxes:
         return char_images, boxes
+
     return char_images
+
 
 
 def segment_words_from_line(img, min_area=20, dilate=True,
                             gap_factor=1.5, return_boxes=False):
     """
-    Segment a single handwritten line into words and characters.
+    DESCRIPTION:
+        Segments a single handwritten line image into words and characters.
+        Uses contour detection to find character blobs, then groups them into
+        words based on horizontal gaps, and normalizes each character into a
+        28×28 MNIST-style image.
 
-    Returns:
-        word_char_images: list of list of 28x28 images
-            [
-              [char28_word1_char1, char28_word1_char2, ...],
-              [char28_word2_char1, ...],
-              ...
-            ]
+    INPUT:
+        img (np.ndarray):
+            Input image array for one handwritten line (grayscale, RGB, or RGBA).
+        min_area (int):
+            Minimum bounding-box area required to treat a contour as a valid character.
+        dilate (bool):
+            Whether to apply morphological dilation to strengthen and connect strokes.
+        gap_factor (float):
+            Multiplier applied to the median character width to determine what horizontal
+            gap size counts as a word boundary.
+        return_boxes (bool):
+            If True, also returns the bounding boxes for all characters, grouped by word.
 
-        If return_boxes is True, also returns:
-        word_char_boxes: list of list of (x,y,w,h) for each char in each word.
+    PROCESSING:
+        - Convert input to grayscale.
+        - Apply Otsu thresholding with inversion to isolate foreground ink.
+        - Optionally dilate to merge broken strokes.
+        - Detect external contours and compute bounding boxes for candidate characters.
+        - Filter out noise using a minimum area threshold.
+        - Sort all boxes left-to-right.
+        - Compute the median character width and derive a word-gap threshold.
+        - Traverse boxes in order and start a new word whenever the horizontal gap
+          between consecutive boxes exceeds the word-gap threshold.
+        - For each character in each word:
+            * Crop the bounding box region.
+            * Embed it into a square canvas to preserve aspect ratio.
+            * Resize to 28×28.
+            * Normalize intensities to [0, 1].
+
+    OUTPUT:
+        If return_boxes=False:
+            word_char_images : list of list of np.ndarray
+                [
+                  [char28_word1_char1, char28_word1_char2, ...],
+                  [char28_word2_char1, ...],
+                  ...
+                ]
+
+        If return_boxes=True:
+            (word_char_images, word_char_boxes)
+                word_char_images : as above
+                word_char_boxes  : list of list of (x, y, w, h) bounding boxes
     """
-    # Reuse the same preprocessing as segment_characters_from_word
+
+    # --------------------------------------------------
+    # Step 1: Normalize to grayscale (handles RGB / RGBA)
+    # --------------------------------------------------
     if len(img.shape) == 3:
+        # If the image has an alpha channel, drop it first
         if img.shape[2] == 4:
             img = cv2.cvtColor(img, cv2.COLOR_BGRA2BGR)
+        # Convert BGR image to grayscale
         gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
     else:
+        # Already grayscale
         gray = img.copy()
 
+    # --------------------------------------------------
+    # Step 2: Threshold + invert:
+    # - Otsu chooses threshold automatically.
+    # - Ink becomes white (255), background black (0).
+    # --------------------------------------------------
     _, thresh = cv2.threshold(
         gray, 0, 255,
         cv2.THRESH_BINARY_INV + cv2.THRESH_OTSU
     )
 
+    # --------------------------------------------------
+    # Step 3: Optional dilation to thicken strokes and
+    # connect slightly broken character components.
+    # --------------------------------------------------
     if dilate:
         kernel = np.ones((3, 3), np.uint8)
         thresh = cv2.dilate(thresh, kernel, iterations=1)
 
+    # --------------------------------------------------
+    # Step 4: Find external contours -> candidate characters
+    # --------------------------------------------------
     contours, _ = cv2.findContours(
         thresh,
         mode=cv2.RETR_EXTERNAL,
@@ -269,63 +386,98 @@ def segment_words_from_line(img, min_area=20, dilate=True,
     boxes = []
     for cnt in contours:
         x, y, w, h = cv2.boundingRect(cnt)
+
+        # Skip very small blobs that are likely noise
         if w * h < min_area:
             continue
+
         boxes.append((x, y, w, h))
 
+    # If no valid characters found, return empty structures
     if not boxes:
         return ([], []) if return_boxes else []
 
-    # Sort left-to-right
+    # --------------------------------------------------
+    # Step 5: Sort characters left → right (reading order)
+    # --------------------------------------------------
     boxes.sort(key=lambda b: b[0])
 
-    # --- group boxes into words based on horizontal gap ---
+    # --------------------------------------------------
+    # Step 6: Group boxes into words based on horizontal gaps
+    # --------------------------------------------------
+    # Estimate a "typical" character width
     widths = [w for (_, _, w, _) in boxes]
     median_w = np.median(widths)
-    word_gap_threshold = gap_factor * median_w  # gap > this => new word
+
+    # Any gap larger than this is considered a word boundary
+    word_gap_threshold = gap_factor * median_w
 
     words_boxes = []
-    current = [boxes[0]]
+    current = [boxes[0]]  # start first word with the leftmost box
 
     for box in boxes[1:]:
         x, y, w, h = box
         prev_x, prev_y, prev_w, prev_h = current[-1]
+
+        # Horizontal gap between this box and the previous one
         gap = x - (prev_x + prev_w)
+
         if gap > word_gap_threshold:
-            # start new word
+            # Large gap -> start a new word
             words_boxes.append(current)
             current = [box]
         else:
+            # Still part of the current word
             current.append(box)
+
+    # Append the last accumulated word
     words_boxes.append(current)
 
-    # --- build 28x28 images for each char in each word ---
+    # --------------------------------------------------
+    # Step 7: Build 28×28 normalized images for each char
+    # in each word, and track bounding boxes if requested.
+    # --------------------------------------------------
     word_char_images = []
     word_char_boxes = []
 
     for word in words_boxes:
         char_imgs_this_word = []
         boxes_this_word = []
+
         for (x, y, w, h) in word:
+            # Crop the character region from the thresholded image
             char_roi = thresh[y:y+h, x:x+w]
 
+            # Create a square canvas to preserve aspect ratio
             side = max(w, h)
             square = np.zeros((side, side), dtype=np.uint8)
+
+            # Center the character inside the square
             x_offset = (side - w) // 2
             y_offset = (side - h) // 2
             square[y_offset:y_offset+h, x_offset:x_offset+w] = char_roi
 
+            # Resize to 28×28 for compatibility with MNIST-style models
             char28 = cv2.resize(square, (28, 28), interpolation=cv2.INTER_AREA)
+
+            # Normalize pixel intensities to [0, 1]
             char28 = char28.astype("float32") / 255.0
-            # If you invert for training, do it here:
+
+            # If you trained with inverted colors, flip here:
             # char28 = 1.0 - char28
 
+            # Store image + original bounding box
             char_imgs_this_word.append(char28)
             boxes_this_word.append((x, y, w, h))
 
         word_char_images.append(char_imgs_this_word)
         word_char_boxes.append(boxes_this_word)
 
+    # --------------------------------------------------
+    # Step 8: Return images and (optionally) bounding boxes
+    # --------------------------------------------------
     if return_boxes:
         return word_char_images, word_char_boxes
+
     return word_char_images
+

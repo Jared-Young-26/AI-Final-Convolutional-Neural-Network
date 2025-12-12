@@ -211,13 +211,13 @@ def predict_ann_single_digits(img28):
 def predict_ann_single_letters(img28):
     """
     DESCRIPTION:
-        Generates a digit prediction using the custom manually-implemented
+        Generates a letter prediction using the custom manually-implemented
         artificial neural network. Internally extracts edge-segment features,
         loads learned weights, and performs forward propagation.
 
     INPUT:
         img28 : np.ndarray
-            A 28×28 MNIST-style grayscale float32 image.
+            A 28×28 EMNIST-style grayscale float32 image.
 
     PROCESSING:
         - Compute the 8×8 grid edge-density features.
@@ -298,12 +298,12 @@ def load_tf_letter_cnn():
 def predict_cnn_single_letters(img28):
     """
     DESCRIPTION:
-        Produces a digit prediction using the trained TensorFlow CNN model.
+        Produces a letter prediction using the trained TensorFlow CNN model.
         This serves as the accuracy benchmark against the custom ANN.
 
     INPUT:
         img28 : np.ndarray
-            A 28×28 grayscale image (float32) in MNIST format.
+            A 28×28 grayscale image (float32) in EMNIST format.
 
     PROCESSING:
         - Load TensorFlow CNN model from disk.
@@ -546,38 +546,76 @@ canvas_result = st_canvas(
 )
 
 if st.button("Recognize Word"):
+
+    # Guard clause: ensure the user has drawn something on the canvas
     if canvas_result.image_data is None:
         st.warning("Draw a word first!")
     else:
+        # Convert Streamlit canvas output --> uint8 image for OpenCV
         img = canvas_result.image_data.astype("uint8")
 
-        # Segment into characters + get bounding boxes
-        char_imgs, boxes = segment_characters_from_word(img, return_boxes=True)
+        # --------------------------------------------------
+        # Segment the drawn word into individual characters
+        # Returns:
+        #   char_imgs -> list of 28x28 normalized character images
+        #   boxes     -> corresponding (x, y, w, h) bounding boxes
+        # --------------------------------------------------
+        char_imgs, boxes = segment_characters_from_word(
+            img, return_boxes=True
+        )
 
+        # If no characters were found, give user feedback
         if not char_imgs:
-            st.warning("No characters detected. Try writing bigger / darker / more separated.")
+            st.warning(
+                "No characters detected. Try writing bigger / darker / more separated."
+            )
         else:
             letters = []
 
+            # --------------------------------------------------
+            # Predict each character independently using CNN
+            # --------------------------------------------------
             for char28 in char_imgs:
-                # Use your existing CNN letter predictor
+                # Each char28 is already preprocessed to match training:
+                # - centered
+                # - square
+                # - resized to 28x28
+                # - normalized to [0,1]
                 pred_idx, _ = make_prediction_letters(char28)
+
+                # Convert numeric class index → actual letter
                 letters.append(idx_to_letter(pred_idx))
 
+            # Combine predicted letters into a single word
             word = "".join(letters)
             st.subheader(f"Predicted text: **{word}**")
 
-            # Draw boxes + labels
+            # --------------------------------------------------
+            # Visualization: draw bounding boxes and predictions
+            # --------------------------------------------------
             if img.shape[2] == 4:
+                # Convert RGBA → BGR for OpenCV drawing
                 vis = cv2.cvtColor(img, cv2.COLOR_RGBA2BGR)
             else:
                 vis = img.copy()
 
+            # Draw each character box with its predicted label
             for (box, letter) in zip(boxes, letters):
                 x, y, w, h = box
-                cv2.rectangle(vis, (x, y), (x + w, y + h), (0, 255, 0), 1)
+
+                # Bounding box around character
+                cv2.rectangle(
+                    vis,
+                    (x, y),
+                    (x + w, y + h),
+                    (0, 255, 0),
+                    1
+                )
+
+                # Draw predicted letter above the box
                 cv2.putText(
-                    vis, letter,
+                    vis,
+                    letter,
                     (x, max(0, y - 5)),
                     cv2.FONT_HERSHEY_SIMPLEX,
                     0.7,
@@ -586,8 +624,14 @@ if st.button("Recognize Word"):
                     lineType=cv2.LINE_AA,
                 )
 
+            # Convert back to RGB for Streamlit display
             vis_rgb = cv2.cvtColor(vis, cv2.COLOR_BGR2RGB)
-            st.image(vis_rgb, caption="Detected letters with bounding boxes", use_container_width=True)
+            st.image(
+                vis_rgb,
+                caption="Detected letters with bounding boxes",
+                use_container_width=True
+            )
+
 
 # =================
 # SENTENCES
@@ -607,39 +651,70 @@ sentence_canvas = st_canvas(
 )
 
 if st.button("Recognize Sentence"):
+
+    # Guard clause: make sure the user actually drew something
     if sentence_canvas.image_data is None:
         st.warning("Draw a sentence first!")
     else:
+        # Convert canvas RGBA float image → uint8 for OpenCV processing
         img = sentence_canvas.image_data.astype("uint8")
 
+        # --------------------------------------------------
+        # Segment the line into words, then characters
+        # Returns:
+        #   word_char_imgs  -> [[char28, char28, ...], ...]
+        #   word_char_boxes -> matching bounding boxes
+        # --------------------------------------------------
         word_char_imgs, word_char_boxes = segment_words_from_line(
             img, return_boxes=True
         )
 
+        # If no valid contours were found, give user feedback
         if not word_char_imgs:
             st.warning("No characters detected. Try writing bigger / darker.")
         else:
             word_strings = []
 
+            # --------------------------------------------------
+            # Predict letters word-by-word, character-by-character
+            # --------------------------------------------------
             for chars_in_word in word_char_imgs:
                 letters = []
+
                 for char28 in chars_in_word:
+                    # Each char28 is already normalized and 28×28
+                    # CNN predicts class index for a single letter
                     pred_idx, _ = make_prediction_letters(char28)
+
+                    # Convert numeric class index → actual letter
                     letters.append(idx_to_letter(pred_idx))
+
+                # Join predicted letters into a word
                 word_strings.append("".join(letters))
 
+            # Join all predicted words into a sentence
             sentence = " ".join(word_strings)
             st.subheader(f"Predicted sentence: **{sentence}**")
 
-            # Visualize word/char boxes on the original image
+            # --------------------------------------------------
+            # Visualization: draw character bounding boxes
+            # on the original canvas image for debugging
+            # --------------------------------------------------
             if img.shape[2] == 4:
+                # Convert RGBA → BGR for OpenCV drawing
                 vis = cv2.cvtColor(img, cv2.COLOR_RGBA2BGR)
             else:
                 vis = img.copy()
 
+            # Draw green boxes around each detected character
             for boxes, word in zip(word_char_boxes, word_strings):
                 for (x, y, w, h) in boxes:
                     cv2.rectangle(vis, (x, y), (x+w, y+h), (0, 255, 0), 1)
 
+            # Convert back to RGB for Streamlit display
             vis_rgb = cv2.cvtColor(vis, cv2.COLOR_BGR2RGB)
-            st.image(vis_rgb, caption="Segmented words/characters", use_container_width=True)
+            st.image(
+                vis_rgb,
+                caption="Segmented words/characters",
+                use_container_width=True
+            )

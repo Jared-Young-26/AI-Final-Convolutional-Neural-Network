@@ -10,11 +10,11 @@ from segments import extract_edge_segment_features, compute_edges, segment_edge_
 # -------------------------------------
 # DATASET CONFIGURATION
 # -------------------------------------
-
+# Controls which dataset is loaded AND how many output classes the models use.
+# This flag propagates through preprocessing, ANN output size, and CNN output layer.
 # Options:
 #   "digits"  → MNIST 0–9
 #   "letters" → EMNIST Letters A–Z (labels 1–26, automatically shifted to 0–25)
-
 DATASET = "letters"
 
 # ------------------------------------------------------
@@ -193,7 +193,7 @@ def get_data(dataset="letters"):
     """
     if dataset == "digits":
         # Standard MNIST 0-9
-        (x_train, y_train), (x_test, y_test) = keras_datasets.mnist.load_data()
+        (x_train, y_train), (x_test, y_test) = datasets.mnist.load_data()
         num_classes = 10
 
     elif dataset == "letters":
@@ -236,6 +236,7 @@ def load_and_extract(dataset=DATASET,grid_rows=8, grid_cols=8):
         for training the manual ANN.
 
     INPUT:
+        dataset (str): Which dataset to load ("digits" or "letters").
         grid_rows (int) : Number of vertical grid partitions per image
         grid_cols (int) : Number of horizontal grid partitions per image
 
