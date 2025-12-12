@@ -185,3 +185,8 @@ and the CNN (~99% accuracy with raw pixels) highlighted:
 2. https://medium.com/advanced-deep-learning/cnn-operation-with-2-kernels-resulting-in-2-feature-mapsunderstanding-the-convolutional-filter-c4aad26cf32
 
 3. https://www.geeksforgeeks.org/computer-vision/backpropagation-in-convolutional-neural-networks/
+
+### Setup
+
+```bash
+pip install -r requirements.txt
