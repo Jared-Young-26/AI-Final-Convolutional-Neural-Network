@@ -256,7 +256,7 @@ def run_word_mode():
 
     canvas_word = st_canvas(
         fill_color="rgba(255,255,255,1)",
-        stroke_width=7,
+        stroke_width=5,
         stroke_color="#000000",
         background_color="#FFFFFF",
         height=128,
@@ -278,7 +278,7 @@ def run_word_mode():
                 char28 = preprocess_canvas_to_mnist(
                     char_img,
                     mode="letter",
-                    input_type="canvas"
+                    input_type="glyph"
                 )
                 #char28 = char_img
                 pred_idx, _ = predict_tf(char28, load_tf_model("tf_cnn_model_letters.keras"))
@@ -306,7 +306,7 @@ def run_sentence_mode():
 
     sentence_canvas = st_canvas(
         fill_color="rgba(255, 255, 255, 1)",
-        stroke_width=7,
+        stroke_width=5,
         stroke_color="#000000",
         background_color="#FFFFFF",
         height=128,
@@ -351,10 +351,10 @@ def run_sentence_mode():
                         char28 = preprocess_canvas_to_mnist(
                             char_img,
                             mode="letter",
-                            input_type="canvas"
+                            input_type="glyph"
                         )
-
-                        pred_idx, _ = make_prediction_letters(char28)
+                        pred_idx, _ = predict_tf(char28, load_tf_model("tf_cnn_model_letters.keras"))
+                        #pred_idx, _ = make_prediction_letters(char28)
                         letters.append(idx_to_letter(pred_idx))
 
                     # Join predicted letters into a word

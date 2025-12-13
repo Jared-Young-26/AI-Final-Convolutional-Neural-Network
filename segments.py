@@ -48,7 +48,7 @@ def preprocess_canvas_to_mnist(canvas_img, mode="digit", input_type="canvas"):
     else:
         # Glyph already cropped — JUST binarize gently
         _, digit = cv2.threshold(
-            gray, 127, 255,
+            gray, 0, 255,
             cv2.THRESH_BINARY
         )
 
@@ -463,9 +463,9 @@ def segment_words_from_line(img, min_area=20, dilate=True,
     # Step 3: Optional dilation to thicken strokes and
     # connect slightly broken character components.
     # --------------------------------------------------
-    if dilate:
-        kernel = np.ones((3, 3), np.uint8)
-        thresh = cv2.dilate(thresh, kernel, iterations=1)
+    #if dilate:
+    #    kernel = np.ones((3, 3), np.uint8)
+    #    thresh = cv2.dilate(thresh, kernel, iterations=1)
 
     # --------------------------------------------------
     # Step 4: Find external contours -> candidate characters
