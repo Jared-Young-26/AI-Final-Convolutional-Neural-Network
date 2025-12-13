@@ -294,7 +294,7 @@ def run_word_mode():
                 cv2.putText(vis, letter, (x, y-5),
                             cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255,0,0), 1)
 
-            st.image(cv2.cvtColor(vis, cv2.COLOR_BGR2RGB), use_container_width=True)
+            st.image(cv2.cvtColor(vis, cv2.COLOR_BGR2RGB), width="content")
 
 
 
@@ -384,7 +384,7 @@ def run_sentence_mode():
                 st.image(
                     vis_rgb,
                     caption="Segmented words/characters",
-                    use_container_width=True
+                    width="content"
                 )
 
 if mode == "Digit":
