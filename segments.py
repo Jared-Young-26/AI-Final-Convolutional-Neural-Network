@@ -363,22 +363,11 @@ def segment_characters_from_word(img, min_area=20, dilate=True, return_boxes=Fal
         # Crop the character region
         char_roi = thresh[y:y+h, x:x+w]
 
-        # Make bounding area square by padding the shorter side
-        side = max(w, h)
-        square = np.zeros((side, side), dtype=np.uint8)
-
-        # Center the cropped ROI inside the square
-        x_offset = (side - w) // 2
-        y_offset = (side - h) // 2
-        square[y_offset:y_offset+h, x_offset:x_offset+w] = char_roi
-
-        # Resize to EMNIST-standard dimensions
-        char28 = cv2.resize(square, (28, 28), interpolation=cv2.INTER_AREA)
-
-        # Normalize to 0–1 float
-        char28 = char28.astype("float32") / 255.0
+        # Use unified MNIST preprocessing
+        char28 = preprocess_canvas_to_mnist(char_roi)
 
         char_images.append(char28)
+
 
     # --------------------------------------------------
     # Return format depends on whether bounding boxes are requested
@@ -545,25 +534,11 @@ def segment_words_from_line(img, min_area=20, dilate=True,
         boxes_this_word = []
 
         for (x, y, w, h) in word:
-            # Crop the character region from the thresholded image
             char_roi = thresh[y:y+h, x:x+w]
 
-            # Create a square canvas to preserve aspect ratio
-            side = max(w, h)
-            square = np.zeros((side, side), dtype=np.uint8)
+            # Unified preprocessing
+            char28 = preprocess_canvas_to_mnist(char_roi)
 
-            # Center the character inside the square
-            x_offset = (side - w) // 2
-            y_offset = (side - h) // 2
-            square[y_offset:y_offset+h, x_offset:x_offset+w] = char_roi
-
-            # Resize to 28×28 for compatibility with MNIST-style models
-            char28 = cv2.resize(square, (28, 28), interpolation=cv2.INTER_AREA)
-
-            # Normalize pixel intensities to [0, 1]
-            char28 = char28.astype("float32") / 255.0
-
-            # Store image + original bounding box
             char_imgs_this_word.append(char28)
             boxes_this_word.append((x, y, w, h))
 

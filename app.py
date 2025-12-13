@@ -4,7 +4,7 @@ import cv2
 from PIL import Image
 import tensorflow as tf
 import matplotlib.pyplot as plt
-
+from streamlit_drawable_canvas import st_canvas
 from ann import load_model, predict_classes, predict_proba
 from segments import compute_edges, extract_edge_segment_features, segment_characters_from_word, segment_words_from_line, preprocess_canvas_to_mnist
 from cnn.cnn import make_prediction_letters, make_prediction_digits
@@ -120,175 +120,35 @@ def viz_feature_vector(features):
     return fig
 
 
-def predict_ann_single_digits(img28):
-    """
-    DESCRIPTION:
-        Generates a digit prediction using the custom manually-implemented
-        artificial neural network. Internally extracts edge-segment features,
-        loads learned weights, and performs forward propagation.
-
-    INPUT:
-        img28 : np.ndarray
-            A 28×28 MNIST-style grayscale float32 image.
-
-    PROCESSING:
-        - Compute the 8×8 grid edge-density features.
-        - Flatten the feature vector to shape (1, 64).
-        - Load model weights + biases from NPZ file.
-        - Print diagnostics (weight means & std) for debugging.
-        - Run ANN forward propagation through predict_classes().
-
-    OUTPUT:
-        int
-            Predicted digit (0–9).
-    """
-
-    # Extract grid-based edge feature vector.
+def predict_ann(img28, model_path):
     feats = extract_edge_segment_features(img28, grid_rows=8, grid_cols=8)
-
-    # Reshape → single-sample input row.
     feats = feats.reshape(1, -1)
 
-    # Load ANN model parameters.
-    weights, biases = load_model("custom_ann_model_digits.npz")
+    weights, biases = load_model(model_path)
+    probs = predict_proba(feats, weights, biases)[0]
 
-    # Debugging metrics for verifying training health.
-    print("W1 mean, std:", np.mean(weights[0]), np.std(weights[0]))
-    print("W2 mean, std:", np.mean(weights[1]), np.std(weights[1]))
-    print("B1 mean, std:", np.mean(biases[0]), np.std(biases[0]))
-    print("B2 mean, std:", np.mean(biases[1]), np.std(biases[1]))
-
-    # Get probabilities from the ANN
-    probs = predict_proba(feats, weights, biases)  
-    final_activations = probs[0] 
-
-    # Class prediction from probabilities
-    pred = int(np.argmax(final_activations))
-
-    return pred, final_activations
-
-
-def predict_ann_single_letters(img28):
-    """
-    DESCRIPTION:
-        Generates a letter prediction using the custom manually-implemented
-        artificial neural network. Internally extracts edge-segment features,
-        loads learned weights, and performs forward propagation.
-
-    INPUT:
-        img28 : np.ndarray
-            A 28×28 EMNIST-style grayscale float32 image.
-
-    PROCESSING:
-        - Compute the 8×8 grid edge-density features.
-        - Flatten the feature vector to shape (1, 64).
-        - Load model weights + biases from NPZ file.
-        - Print diagnostics (weight means & std) for debugging.
-        - Run ANN forward propagation through predict_classes().
-
-    OUTPUT:
-        int
-            Predicted digit (0–9).
-    """
-
-    # Extract grid-based edge feature vector.
-    feats = extract_edge_segment_features(img28, grid_rows=8, grid_cols=8)
-
-    # Reshape → single-sample input row.
-    feats = feats.reshape(1, -1)
-
-    # Load ANN model parameters.
-    weights, biases = load_model("custom_ann_model_letters.npz")
-
-    # Debugging metrics for verifying training health.
-    print("W1 mean, std:", np.mean(weights[0]), np.std(weights[0]))
-    print("W2 mean, std:", np.mean(weights[1]), np.std(weights[1]))
-    print("B1 mean, std:", np.mean(biases[0]), np.std(biases[0]))
-    print("B2 mean, std:", np.mean(biases[1]), np.std(biases[1]))
-
-    # Get probabilities from the ANN
-    probs = predict_proba(feats, weights, biases)  
-    final_activations = probs[0] 
-
-    # Class prediction from probabilities
-    pred = int(np.argmax(final_activations))
-
-    return pred, final_activations
-
+    return int(np.argmax(probs)), probs
 
 @st.cache_resource
-def load_tf_digit_cnn():
-    return tf.keras.models.load_model("tf_cnn_model_digits.keras", compile=False)
+def load_tf_model(path):
+    return tf.keras.models.load_model(path, compile=False)
 
-def predict_cnn_single_digits(img28):
-    """
-    DESCRIPTION:
-        Produces a digit prediction using the trained TensorFlow CNN model.
-        This serves as the accuracy benchmark against the custom ANN.
-
-    INPUT:
-        img28 : np.ndarray
-            A 28×28 grayscale image (float32) in MNIST format.
-
-    PROCESSING:
-        - Load TensorFlow CNN model from disk.
-        - Reshape image → (1, 28, 28, 1) to match Keras expectations.
-        - Model predicts probability distribution.
-        - Return class with highest probability.
-
-    OUTPUT:
-        int
-            Predicted digit (0–9).
-    """
-
-    # Load CNN model architecture + weights.
-    #model = tf.keras.models.load_model("tf_cnn_model.keras")
-    model = load_tf_digit_cnn()
-
-    # Reshape → batch format expected by Keras.
+def predict_tf(img28, model):
     x = img28.reshape(1, 28, 28, 1)
-
-    # Predict class probabilities & take argmax.
-    return int(np.argmax(model.predict(x)))
-
-@st.cache_resource
-def load_tf_letter_cnn():
-    return tf.keras.models.load_model("tf_cnn_model_letters.keras", compile=False)
-
-def predict_cnn_single_letters(img28):
-    """
-    DESCRIPTION:
-        Produces a letter prediction using the trained TensorFlow CNN model.
-        This serves as the accuracy benchmark against the custom ANN.
-
-    INPUT:
-        img28 : np.ndarray
-            A 28×28 grayscale image (float32) in EMNIST format.
-
-    PROCESSING:
-        - Load TensorFlow CNN model from disk.
-        - Reshape image → (1, 28, 28, 1) to match Keras expectations.
-        - Model predicts probability distribution.
-        - Return class with highest probability.
-
-    OUTPUT:
-        int
-            Predicted digit (0–9).
-    """
-
-    # Load CNN model architecture + weights.
-    #model = tf.keras.models.load_model("tf_cnn_model.keras")
-    model = load_tf_letter_cnn()
-
-    # Reshape → batch format expected by Keras.
-    x = img28.reshape(1, 28, 28, 1)
-
-    # Predict class probabilities & take argmax.
-    return int(np.argmax(model.predict(x)))
+    probs = model.predict(x, verbose=0)[0]
+    return int(np.argmax(probs)), probs
 
 def idx_to_letter(idx: int) -> str:
-    # 0 -> 'A', 1 -> 'B', ..., 25 -> 'Z'
-    return chr(ord('A') + int(idx))
+    return chr(ord("A") + int(idx))
+
+def canvas_to_img28(canvas_img, rotate=False):
+    img28 = preprocess_canvas_to_mnist(canvas_img)
+
+    if rotate:
+        img28 = np.rot90(img28, 1)
+        img28 = np.fliplr(img28)
+
+    return img28
 
 # ======================
 # Streamlit App Layout
@@ -298,17 +158,8 @@ def idx_to_letter(idx: int) -> str:
 # DIGITS
 # ======================
 
-# App header + description.
-st.title("🖊️ Handwritten Digit Recognition Demo")
-st.write("Draw a digit below and compare predictions from:")
-st.write("- Our custom **ANN model**")
-st.write("- Our custom **CNN model**")
-st.write("- Standard **TensorFlow CNN**")
+st.title("🖊️ Handwritten Digit Recognition")
 
-# Import canvas tool for drawing.
-from streamlit_drawable_canvas import st_canvas
-
-# Create interactive drawing area.
 canvas = st_canvas(
     fill_color="rgba(255,255,255,1)",
     stroke_width=6,
@@ -317,93 +168,41 @@ canvas = st_canvas(
     width=280,
     height=280,
     drawing_mode="freedraw",
-    key="canvas_digit"
+    key="canvas_digit",
 )
 
-# When a drawing exists on the canvas...
 if canvas.image_data is not None:
-    # Convert to uint8 image array.
     img = canvas.image_data.astype("uint8")
-    print("Begin Raw\n")
-    print(img)
-    print("\nEnd Raw")
+    img28 = canvas_to_img28(img)
 
-    # Show raw drawing.
-    st.image(canvas.image_data, caption="Live Drawing", width=280)
-
-    # Convert to MNIST-style.
-    img28 = preprocess_canvas_to_mnist(img)
     st.image(img28, caption="Preprocessed MNIST Input", width=150)
 
+    ann_pred, ann_probs = predict_ann(img28, "custom_ann_model_digits.npz")
+    cnn_pred, cnn_probs = make_prediction_digits(img28)
+    tf_pred, tf_probs = predict_tf(img28, load_tf_model("tf_cnn_model_digits.keras"))
 
-    # Display preprocessed image for verification.
-    #st.subheader("Processed 28×28 Image")
-    #st.image(img28, width=150, clamp=True)
-
-    print("RAW IMG SHAPE:", img28.shape)
-
-    # Compute feature vector for debugging.
-    feats = extract_edge_segment_features(img28, grid_rows=8, grid_cols=8)
-
-    print("FEATURES:", feats)
-    print("FEATURE VECTOR SUM:", np.sum(feats))
-    print("FEATURE VECTOR MAX:", np.max(feats))
-    print("FEATURE VECTOR MIN:", np.min(feats))
-
-    # -------------------------
-    # Compute ANN + CNN predictions
-    # -------------------------
-    ann_pred, ann_outcomes = predict_ann_single_digits(img28)
-    tf_pred = predict_cnn_single_digits(img28)
-    cnn_pred, outcomes = make_prediction_digits(img28)
-    print(outcomes)
-    RED = "\033[31m"
-    RESET = "\033[0m"
-    for row in img28:
-        for num in row:
-            #num = 1 - num
-            s = f"{num:05.2f}"
-            if num != 0.0:
-                print(f"{RED}{s}{RESET}", end = ' ')
-            else:
-                print(s, end = ' ')
-        print()
-    print("==================================================================")
-
-    # Display side-by-side results.
-    st.subheader("Predictions")
     col1, col2, col3 = st.columns(3)
     col1.metric("Custom ANN", ann_pred)
     col2.metric("Custom CNN", cnn_pred)
     col3.metric("TF CNN", tf_pred)
 
-    st.subheader("Original 28x28 Image")
     st.pyplot(viz_original(img28))
-
-    st.subheader("Sobel Edge Map")
-    edges = compute_edges(img28)
     st.pyplot(viz_edges(img28))
+    st.pyplot(viz_grid_segments(compute_edges(img28)))
+    st.pyplot(viz_feature_vector(extract_edge_segment_features(img28)))
 
-    st.subheader("Grid Segmentation Overlay")
-    st.pyplot(viz_grid_segments(edges, grid_rows=8, grid_cols=8))
+    st.subheader("CNN Probabilities")
+    st.bar_chart(cnn_probs)
 
-    st.subheader("Edge-Segment Feature Vector")
-    feats = extract_edge_segment_features(img28, grid_rows=8, grid_cols=8)
-    st.pyplot(viz_feature_vector(feats))
-
-    st.subheader("Custom CNN Probabilities")
-    st.bar_chart(outcomes)
-
-    st.subheader("Custom ANN Probabilities")
-    st.bar_chart(ann_outcomes)
+    st.subheader("ANN Probabilities")
+    st.bar_chart(ann_probs)
 
 # ===============
 # LETTERS
 # ===============
 
-st.title("🔡 Handwritten Letters Recognition Demo")
+st.title("🔡 Handwritten Letter Recognition")
 
-# Create interactive drawing area.
 canvas = st_canvas(
     fill_color="rgba(255,255,255,1)",
     stroke_width=7,
@@ -412,93 +211,44 @@ canvas = st_canvas(
     width=280,
     height=280,
     drawing_mode="freedraw",
-    key="canvas_letters"
+    key="canvas_letter",
 )
 
-# When a drawing exists on the canvas...
 if canvas.image_data is not None:
-    # Convert to uint8 image array.
     img = canvas.image_data.astype("uint8")
-    print("Begin Raw\n")
-    print(img)
-    print("\nEnd Raw")
+    img28 = canvas_to_img28(img, rotate=True)
 
-    # Show raw drawing.
-    st.image(canvas.image_data, caption="Live Drawing", width=280)
+    st.image(img28, caption="Preprocessed EMNIST Input", width=150)
 
-    # Convert to MNIST-style.
-    img28 = preprocess_canvas_to_mnist(img)
-    st.image(img28, caption="Preprocessed MNIST Input", width=150)
+    ann_pred, ann_probs = predict_ann(img28, "custom_ann_model_letters.npz")
+    cnn_pred, cnn_probs = make_prediction_letters(img28)
+    tf_pred, tf_probs = predict_tf(img28, load_tf_model("tf_cnn_model_letters.keras"))
 
-    # Display preprocessed image for verification.
-    st.subheader("Processed 28×28 Image")
-    st.image(img28, width=150, clamp=True)
-
-    print("RAW IMG SHAPE:", img28.shape)
-
-    # Compute feature vector for debugging.
-    feats = extract_edge_segment_features(img28, grid_rows=8, grid_cols=8)
-
-    print("FEATURES:", feats)
-    print("FEATURE VECTOR SUM:", np.sum(feats))
-    print("FEATURE VECTOR MAX:", np.max(feats))
-    print("FEATURE VECTOR MIN:", np.min(feats))
-
-    # -------------------------
-    # Compute ANN + CNN predictions
-    # -------------------------
-    ann_pred, ann_outcomes = predict_ann_single_letters(img28)
-    tf_pred = predict_cnn_single_letters(img28)
-    cnn_pred, outcomes = make_prediction_letters(img28)
-    print(outcomes)
-    RED = "\033[31m"
-    RESET = "\033[0m"
-    for row in img28:
-        for num in row:
-            #num = 1 - num
-            s = f"{num:05.2f}"
-            if num != 0.0:
-                print(f"{RED}{s}{RESET}", end = ' ')
-            else:
-                print(s, end = ' ')
-        print()
-    print("==================================================================")
-
-    # Display side-by-side results.
-    st.subheader("Predictions")
     col1, col2, col3 = st.columns(3)
     col1.metric("Custom ANN", idx_to_letter(ann_pred))
     col2.metric("Custom CNN", idx_to_letter(cnn_pred))
     col3.metric("TF CNN", idx_to_letter(tf_pred))
 
-    st.subheader("Original 28x28 Image")
     st.pyplot(viz_original(img28))
-
-    st.subheader("Sobel Edge Map")
-    edges = compute_edges(img28)
     st.pyplot(viz_edges(img28))
+    st.pyplot(viz_grid_segments(compute_edges(img28)))
+    st.pyplot(viz_feature_vector(extract_edge_segment_features(img28)))
 
-    st.subheader("Grid Segmentation Overlay")
-    st.pyplot(viz_grid_segments(edges, grid_rows=8, grid_cols=8))
+    st.subheader("CNN Probabilities")
+    st.bar_chart(cnn_probs)
 
-    st.subheader("Edge-Segment Feature Vector")
-    feats = extract_edge_segment_features(img28, grid_rows=8, grid_cols=8)
-    st.pyplot(viz_feature_vector(feats))
+    st.subheader("ANN Probabilities")
+    st.bar_chart(ann_probs)
 
-    st.subheader("Custom CNN Probabilities")
-    st.bar_chart(outcomes)
-
-    st.subheader("Custom ANN Probabilities")
-    st.bar_chart(ann_outcomes)
 
 # =================
 # WORDS
 # =================
 
-st.title("📝 Handwritten Word → Text with Bounding Boxes")
+st.title("📝 Handwritten Word Recognition")
 
-canvas_result = st_canvas(
-    fill_color="rgba(255, 255, 255, 1)",
+canvas_word = st_canvas(
+    fill_color="rgba(255,255,255,1)",
     stroke_width=7,
     stroke_color="#000000",
     background_color="#FFFFFF",
@@ -509,91 +259,27 @@ canvas_result = st_canvas(
 )
 
 if st.button("Recognize Word"):
-
-    # Guard clause: ensure the user has drawn something on the canvas
-    if canvas_result.image_data is None:
+    if canvas_word.image_data is None:
         st.warning("Draw a word first!")
     else:
-        # Convert Streamlit canvas output --> uint8 image for OpenCV
-        img = canvas_result.image_data.astype("uint8")
+        img = canvas_word.image_data.astype("uint8")
+        char_imgs, boxes = segment_characters_from_word(img, return_boxes=True)
 
-        # --------------------------------------------------
-        # Segment the drawn word into individual characters
-        # Returns:
-        #   char_imgs -> list of 28x28 normalized character images
-        #   boxes     -> corresponding (x, y, w, h) bounding boxes
-        # --------------------------------------------------
-        char_imgs, boxes = segment_characters_from_word(
-            img, return_boxes=True
-        )
+        letters = []
+        for char28 in char_imgs:
+            pred_idx, _ = make_prediction_letters(char28)
+            letters.append(idx_to_letter(pred_idx))
 
-        # If no characters were found, give user feedback
-        if not char_imgs:
-            st.warning(
-                "No characters detected. Try writing bigger / darker / more separated."
-            )
-        else:
-            letters = []
+        st.subheader(f"Predicted word: **{''.join(letters)}**")
 
-            # --------------------------------------------------
-            # Predict each character independently using CNN
-            # --------------------------------------------------
-            for char28 in char_imgs:
-                # Each char28 is already preprocessed to match training:
-                # - centered
-                # - square
-                # - resized to 28x28
-                # - normalized to [0,1]
-                pred_idx, _ = make_prediction_letters(char28)
+        vis = cv2.cvtColor(img, cv2.COLOR_RGBA2BGR)
+        for (x, y, w, h), letter in zip(boxes, letters):
+            cv2.rectangle(vis, (x, y), (x+w, y+h), (0,255,0), 1)
+            cv2.putText(vis, letter, (x, y-5),
+                        cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255,0,0), 1)
 
-                # Convert numeric class index to actual letter
-                letters.append(idx_to_letter(pred_idx))
+        st.image(cv2.cvtColor(vis, cv2.COLOR_BGR2RGB), use_container_width=True)
 
-            # Combine predicted letters into a single word
-            word = "".join(letters)
-            st.subheader(f"Predicted text: **{word}**")
-
-            # --------------------------------------------------
-            # Visualization: draw bounding boxes and predictions
-            # --------------------------------------------------
-            if img.shape[2] == 4:
-                # Convert RGBA → BGR for OpenCV drawing
-                vis = cv2.cvtColor(img, cv2.COLOR_RGBA2BGR)
-            else:
-                vis = img.copy()
-
-            # Draw each character box with its predicted label
-            for (box, letter) in zip(boxes, letters):
-                x, y, w, h = box
-
-                # Bounding box around character
-                cv2.rectangle(
-                    vis,
-                    (x, y),
-                    (x + w, y + h),
-                    (0, 255, 0),
-                    1
-                )
-
-                # Draw predicted letter above the box
-                cv2.putText(
-                    vis,
-                    letter,
-                    (x, max(0, y - 5)),
-                    cv2.FONT_HERSHEY_SIMPLEX,
-                    0.7,
-                    (255, 0, 0),
-                    1,
-                    lineType=cv2.LINE_AA,
-                )
-
-            # Convert back to RGB for Streamlit display
-            vis_rgb = cv2.cvtColor(vis, cv2.COLOR_BGR2RGB)
-            st.image(
-                vis_rgb,
-                caption="Detected letters with bounding boxes",
-                use_container_width=True
-            )
 
 
 # =================
@@ -604,7 +290,7 @@ st.title("🧾 Handwritten Sentence → Words")
 
 sentence_canvas = st_canvas(
     fill_color="rgba(255, 255, 255, 1)",
-    stroke_width=10,
+    stroke_width=7,
     stroke_color="#000000",
     background_color="#FFFFFF",
     height=128,
