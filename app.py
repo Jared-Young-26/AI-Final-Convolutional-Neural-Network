@@ -142,8 +142,7 @@ def idx_to_letter(idx: int) -> str:
     return chr(ord("A") + int(idx))
 
 def canvas_to_img28(canvas_img, mode="digit"):
-    img28 = preprocess_canvas_to_mnist(canvas_img, mode=mode, debug=False)
-
+    img28 = preprocess_canvas_to_mnist(canvas_img, mode=mode)
     return img28
 
 # ======================
@@ -267,7 +266,7 @@ if st.button("Recognize Word"):
             char28 = preprocess_canvas_to_mnist(
                 char_img,
                 mode="letter",
-                debug=False
+                input_type="canvas"
             )
 
             pred_idx, _ = make_prediction_letters(char28)
@@ -339,7 +338,7 @@ if st.button("Recognize Sentence"):
                     char28 = preprocess_canvas_to_mnist(
                         char_img,
                         mode="letter",
-                        debug=False
+                        input_type="canvas"
                     )
 
                     pred_idx, _ = make_prediction_letters(char28)

@@ -2,7 +2,7 @@ import cv2
 import numpy as np
 import scipy.ndimage as ndimage
 
-def preprocess_canvas_to_mnist(canvas_img, mode="digit", debug=False):
+def preprocess_canvas_to_mnist(canvas_img, mode="digit", input_type="canvas"):
 
     # --------------------------------------------------
     # 1. Convert to grayscale
@@ -29,26 +29,29 @@ def preprocess_canvas_to_mnist(canvas_img, mode="digit", debug=False):
     # --------------------------------------------------
     # 4. Otsu threshold
     # --------------------------------------------------
-    _, thresh = cv2.threshold(
-        gray, 0, 255,
-        cv2.THRESH_BINARY + cv2.THRESH_OTSU
-    )
+    if input_type == "canvas":
+        # Full cleanup pipeline
+        _, thresh = cv2.threshold(
+            gray, 0, 255,
+            cv2.THRESH_BINARY + cv2.THRESH_OTSU
+        )
 
-    # --------------------------------------------------
-    # 5. Morphological cleanup
-    # --------------------------------------------------
-    kernel = np.ones((3, 3), np.uint8)
-    thresh = cv2.morphologyEx(thresh, cv2.MORPH_OPEN, kernel)
+        kernel = np.ones((3, 3), np.uint8)
+        thresh = cv2.morphologyEx(thresh, cv2.MORPH_OPEN, kernel)
 
-    # --------------------------------------------------
-    # 6. Bounding box
-    # --------------------------------------------------
-    coords = cv2.findNonZero(thresh)
-    if coords is None:
-        return np.zeros((28, 28), dtype=np.float32)
+        coords = cv2.findNonZero(thresh)
+        if coords is None:
+            return np.zeros((28, 28), dtype=np.float32)
 
-    x, y, w, h = cv2.boundingRect(coords)
-    digit = thresh[y:y+h, x:x+w]
+        x, y, w, h = cv2.boundingRect(coords)
+        digit = thresh[y:y+h, x:x+w]
+    else:
+        # Glyph already cropped — JUST binarize gently
+        _, digit = cv2.threshold(
+            gray, 127, 255,
+            cv2.THRESH_BINARY
+        )
+
 
     # --------------------------------------------------
     # 7. Resize to MNIST inner box
