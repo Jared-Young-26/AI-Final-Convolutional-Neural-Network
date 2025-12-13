@@ -262,9 +262,17 @@ if st.button("Recognize Word"):
         char_imgs, boxes = segment_characters_from_word(img, return_boxes=True)
 
         letters = []
-        for char28 in char_imgs:
+        for char_img in char_imgs:
+            # Preprocess each character EXACTLY like single-letter canvas
+            char28 = preprocess_canvas_to_mnist(
+                char_img,
+                mode="letter",
+                debug=False
+            )
+
             pred_idx, _ = make_prediction_letters(char28)
             letters.append(idx_to_letter(pred_idx))
+
 
         st.subheader(f"Predicted word: **{''.join(letters)}**")
 
@@ -326,12 +334,15 @@ if st.button("Recognize Sentence"):
             for chars_in_word in word_char_imgs:
                 letters = []
 
-                for char28 in chars_in_word:
-                    # Each char28 is already normalized and 28×28
-                    # CNN predicts class index for a single letter
-                    pred_idx, _ = make_prediction_letters(char28)
+                for char_img in chars_in_word:
+                    # Apply the SAME preprocessing used everywhere else
+                    char28 = preprocess_canvas_to_mnist(
+                        char_img,
+                        mode="letter",
+                        debug=False
+                    )
 
-                    # Convert numeric class index → actual letter
+                    pred_idx, _ = make_prediction_letters(char28)
                     letters.append(idx_to_letter(pred_idx))
 
                 # Join predicted letters into a word

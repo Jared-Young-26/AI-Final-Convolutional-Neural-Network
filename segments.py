@@ -3,39 +3,31 @@ import numpy as np
 import scipy.ndimage as ndimage
 
 def preprocess_canvas_to_mnist(canvas_img, mode="digit", debug=False):
-    """
-    Converts a Streamlit canvas image into an MNIST-style 28×28 digit.
-
-    INPUT:
-        canvas_img (np.ndarray):
-            Image from Streamlit canvas (RGBA, RGB, or grayscale).
-            Expected size ~280×280.
-
-    OUTPUT:
-        img28 (np.ndarray):
-            28×28 float32 array in [0,1],
-            white digit on black background (MNIST format).
-    """
 
     # --------------------------------------------------
-    # 1. Convert to grayscale safely
+    # 1. Convert to grayscale
     # --------------------------------------------------
     if len(canvas_img.shape) == 3:
-        if canvas_img.shape[2] == 4:  # RGBA
+        if canvas_img.shape[2] == 4:
             canvas_img = cv2.cvtColor(canvas_img, cv2.COLOR_RGBA2RGB)
         gray = cv2.cvtColor(canvas_img, cv2.COLOR_RGB2GRAY)
     else:
         gray = canvas_img.copy()
 
     # --------------------------------------------------
-    # 2. Invert if necessary (canvas is black-on-white)
-    # MNIST is white-on-black
+    # 2. Invert if background is white
     # --------------------------------------------------
     if np.mean(gray) > 127:
         gray = 255 - gray
 
     # --------------------------------------------------
-    # 3. Threshold using Otsu (robust to stroke width)
+    # 3. Ensure uint8 for OpenCV
+    # --------------------------------------------------
+    if gray.dtype != np.uint8:
+        gray = (gray * 255).clip(0, 255).astype(np.uint8)
+
+    # --------------------------------------------------
+    # 4. Otsu threshold
     # --------------------------------------------------
     _, thresh = cv2.threshold(
         gray, 0, 255,
@@ -43,13 +35,13 @@ def preprocess_canvas_to_mnist(canvas_img, mode="digit", debug=False):
     )
 
     # --------------------------------------------------
-    # 4. Remove small noise via morphology
+    # 5. Morphological cleanup
     # --------------------------------------------------
     kernel = np.ones((3, 3), np.uint8)
     thresh = cv2.morphologyEx(thresh, cv2.MORPH_OPEN, kernel)
 
     # --------------------------------------------------
-    # 5. Find bounding box of the digit
+    # 6. Bounding box
     # --------------------------------------------------
     coords = cv2.findNonZero(thresh)
     if coords is None:
@@ -59,58 +51,56 @@ def preprocess_canvas_to_mnist(canvas_img, mode="digit", debug=False):
     digit = thresh[y:y+h, x:x+w]
 
     # --------------------------------------------------
-    # 6. Resize while preserving aspect ratio
-    # MNIST digits occupy ~20×20 inside 28×28
+    # 7. Resize to MNIST inner box
     # --------------------------------------------------
-    target_inner = 20
+    target = 20
     h_, w_ = digit.shape
 
     if h_ > w_:
-        new_h = target_inner
-        new_w = int(w_ * target_inner / h_)
+        new_h = target
+        new_w = int(w_ * target / h_)
     else:
-        new_w = target_inner
-        new_h = int(h_ * target_inner / w_)
+        new_w = target
+        new_h = int(h_ * target / w_)
 
     digit = cv2.resize(digit, (new_w, new_h), interpolation=cv2.INTER_AREA)
 
     # --------------------------------------------------
-    # 7. Pad to 28×28 and center
+    # 8. Pad to 28×28
     # --------------------------------------------------
     img28 = np.zeros((28, 28), dtype=np.uint8)
-
-    x_offset = (28 - new_w) // 2
-    y_offset = (28 - new_h) // 2
-
-    img28[y_offset:y_offset+new_h, x_offset:x_offset+new_w] = digit
+    y0 = (28 - new_h) // 2
+    x0 = (28 - new_w) // 2
+    img28[y0:y0+new_h, x0:x0+new_w] = digit
 
     # --------------------------------------------------
-    # 8. Normalize to [0,1] float32
+    # 9. Normalize
     # --------------------------------------------------
     img28 = img28.astype(np.float32) / 255.0
 
     # --------------------------------------------------
-    # 9. Optional centering via center-of-mass (MNIST trick)
+    # 10. EMNIST orientation FIRST
+    # --------------------------------------------------
+    if mode == "letter":
+        img28 = np.rot90(img28, -1)
+        img28 = np.fliplr(img28)
+
+    # --------------------------------------------------
+    # 11. Center-of-mass (AFTER orientation)
     # --------------------------------------------------
     cy, cx = ndimage.center_of_mass(img28)
     if not np.isnan(cx):
         shift_x = int(14 - cx)
         shift_y = int(14 - cy)
-        img28 = np.roll(img28, shift=(shift_y, shift_x), axis=(0, 1))
+        img28 = np.roll(img28, (shift_y, shift_x), axis=(0, 1))
 
     # --------------------------------------------------
-    # EMNIST-specific orientation correction
+    # 12. Optional stroke normalization for letters
     # --------------------------------------------------
     if mode == "letter":
-        img28 = np.rot90(img28, -1)
-        img28 = np.fliplr(img28)
         kernel = np.ones((2, 2), np.uint8)
         img28 = cv2.dilate((img28 * 255).astype(np.uint8), kernel, 1)
         img28 = img28.astype(np.float32) / 255.0
-
-
-    if debug:
-        return img28, thresh
 
     return img28
 
