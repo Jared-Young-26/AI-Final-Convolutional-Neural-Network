@@ -10,6 +10,18 @@ from segments import compute_edges, extract_edge_segment_features, segment_chara
 from cnn.cnn import make_prediction_letters, make_prediction_digits
 
 
+st.sidebar.title("Mode Selection")
+
+mode = st.sidebar.radio(
+    "Choose recognition mode:",
+    (
+        "Digit",
+        "Letter",
+        "Word",
+        "Sentence",
+    )
+)
+
 # ------------------------------------------------------
 # Visualizations for Streamlit
 # ------------------------------------------------------
@@ -152,224 +164,233 @@ def canvas_to_img28(canvas_img, mode="digit"):
 # ======================
 # DIGITS
 # ======================
+def run_digit_mode():
+    st.title("🖊️ Handwritten Digit Recognition")
 
-st.title("🖊️ Handwritten Digit Recognition")
+    canvas = st_canvas(
+        fill_color="rgba(255,255,255,1)",
+        stroke_width=6,
+        stroke_color="#000000",
+        background_color="#FFFFFF",
+        width=280,
+        height=280,
+        drawing_mode="freedraw",
+        key="canvas_digit",
+    )
 
-canvas = st_canvas(
-    fill_color="rgba(255,255,255,1)",
-    stroke_width=6,
-    stroke_color="#000000",
-    background_color="#FFFFFF",
-    width=280,
-    height=280,
-    drawing_mode="freedraw",
-    key="canvas_digit",
-)
+    if canvas.image_data is not None:
+        img = canvas.image_data.astype("uint8")
+        img28 = canvas_to_img28(img)
 
-if canvas.image_data is not None:
-    img = canvas.image_data.astype("uint8")
-    img28 = canvas_to_img28(img)
+        st.image(img28, caption="Preprocessed MNIST Input", width=150)
 
-    st.image(img28, caption="Preprocessed MNIST Input", width=150)
+        ann_pred, ann_probs = predict_ann(img28, "custom_ann_model_digits.npz")
+        cnn_pred, cnn_probs = make_prediction_digits(img28)
+        tf_pred, tf_probs = predict_tf(img28, load_tf_model("tf_cnn_model_digits.keras"))
 
-    ann_pred, ann_probs = predict_ann(img28, "custom_ann_model_digits.npz")
-    cnn_pred, cnn_probs = make_prediction_digits(img28)
-    tf_pred, tf_probs = predict_tf(img28, load_tf_model("tf_cnn_model_digits.keras"))
+        col1, col2, col3 = st.columns(3)
+        col1.metric("Custom ANN", ann_pred)
+        col2.metric("Custom CNN", cnn_pred)
+        col3.metric("TF CNN", tf_pred)
 
-    col1, col2, col3 = st.columns(3)
-    col1.metric("Custom ANN", ann_pred)
-    col2.metric("Custom CNN", cnn_pred)
-    col3.metric("TF CNN", tf_pred)
+        st.pyplot(viz_original(img28))
+        st.pyplot(viz_edges(img28))
+        st.pyplot(viz_grid_segments(compute_edges(img28)))
+        st.pyplot(viz_feature_vector(extract_edge_segment_features(img28)))
 
-    st.pyplot(viz_original(img28))
-    st.pyplot(viz_edges(img28))
-    st.pyplot(viz_grid_segments(compute_edges(img28)))
-    st.pyplot(viz_feature_vector(extract_edge_segment_features(img28)))
+        st.subheader("CNN Probabilities")
+        st.bar_chart(cnn_probs)
 
-    st.subheader("CNN Probabilities")
-    st.bar_chart(cnn_probs)
-
-    st.subheader("ANN Probabilities")
-    st.bar_chart(ann_probs)
+        st.subheader("ANN Probabilities")
+        st.bar_chart(ann_probs)
 
 # ===============
 # LETTERS
 # ===============
+def run_letter_mode():
+    st.title("🔡 Handwritten Letter Recognition")
 
-st.title("🔡 Handwritten Letter Recognition")
+    canvas = st_canvas(
+        fill_color="rgba(255,255,255,1)",
+        stroke_width=7,
+        stroke_color="#000000",
+        background_color="#FFFFFF",
+        width=280,
+        height=280,
+        drawing_mode="freedraw",
+        key="canvas_letter",
+    )
 
-canvas = st_canvas(
-    fill_color="rgba(255,255,255,1)",
-    stroke_width=7,
-    stroke_color="#000000",
-    background_color="#FFFFFF",
-    width=280,
-    height=280,
-    drawing_mode="freedraw",
-    key="canvas_letter",
-)
+    if canvas.image_data is not None:
+        img = canvas.image_data.astype("uint8")
+        img28 = canvas_to_img28(img, mode="letter")
 
-if canvas.image_data is not None:
-    img = canvas.image_data.astype("uint8")
-    img28 = canvas_to_img28(img, mode="letter")
+        st.image(img28, caption="Preprocessed EMNIST Input", width=150)
 
-    st.image(img28, caption="Preprocessed EMNIST Input", width=150)
+        ann_pred, ann_probs = predict_ann(img28, "custom_ann_model_letters.npz")
+        cnn_pred, cnn_probs = make_prediction_letters(img28)
+        tf_pred, tf_probs = predict_tf(img28, load_tf_model("tf_cnn_model_letters.keras"))
 
-    ann_pred, ann_probs = predict_ann(img28, "custom_ann_model_letters.npz")
-    cnn_pred, cnn_probs = make_prediction_letters(img28)
-    tf_pred, tf_probs = predict_tf(img28, load_tf_model("tf_cnn_model_letters.keras"))
+        col1, col2, col3 = st.columns(3)
+        col1.metric("Custom ANN", idx_to_letter(ann_pred))
+        col2.metric("Custom CNN", idx_to_letter(cnn_pred))
+        col3.metric("TF CNN", idx_to_letter(tf_pred))
 
-    col1, col2, col3 = st.columns(3)
-    col1.metric("Custom ANN", idx_to_letter(ann_pred))
-    col2.metric("Custom CNN", idx_to_letter(cnn_pred))
-    col3.metric("TF CNN", idx_to_letter(tf_pred))
+        st.pyplot(viz_original(img28))
+        st.pyplot(viz_edges(img28))
+        st.pyplot(viz_grid_segments(compute_edges(img28)))
+        st.pyplot(viz_feature_vector(extract_edge_segment_features(img28)))
 
-    st.pyplot(viz_original(img28))
-    st.pyplot(viz_edges(img28))
-    st.pyplot(viz_grid_segments(compute_edges(img28)))
-    st.pyplot(viz_feature_vector(extract_edge_segment_features(img28)))
+        st.subheader("CNN Probabilities")
+        st.bar_chart(cnn_probs)
 
-    st.subheader("CNN Probabilities")
-    st.bar_chart(cnn_probs)
-
-    st.subheader("ANN Probabilities")
-    st.bar_chart(ann_probs)
+        st.subheader("ANN Probabilities")
+        st.bar_chart(ann_probs)
 
 
 # =================
 # WORDS
 # =================
+def run_word_mode():
+    st.title("📝 Handwritten Word Recognition")
 
-st.title("📝 Handwritten Word Recognition")
+    canvas_word = st_canvas(
+        fill_color="rgba(255,255,255,1)",
+        stroke_width=7,
+        stroke_color="#000000",
+        background_color="#FFFFFF",
+        height=128,
+        width=512,
+        drawing_mode="freedraw",
+        key="canvas_word",
+    )
 
-canvas_word = st_canvas(
-    fill_color="rgba(255,255,255,1)",
-    stroke_width=7,
-    stroke_color="#000000",
-    background_color="#FFFFFF",
-    height=128,
-    width=512,
-    drawing_mode="freedraw",
-    key="canvas_word",
-)
+    if st.button("Recognize Word"):
+        if canvas_word.image_data is None:
+            st.warning("Draw a word first!")
+        else:
+            img = canvas_word.image_data.astype("uint8")
+            char_imgs, boxes = segment_characters_from_word(img, return_boxes=True)
 
-if st.button("Recognize Word"):
-    if canvas_word.image_data is None:
-        st.warning("Draw a word first!")
-    else:
-        img = canvas_word.image_data.astype("uint8")
-        char_imgs, boxes = segment_characters_from_word(img, return_boxes=True)
+            letters = []
+            for char_img in char_imgs:
+                # Preprocess each character EXACTLY like single-letter canvas
+                char28 = preprocess_canvas_to_mnist(
+                    char_img,
+                    mode="letter",
+                    input_type="canvas"
+                )
 
-        letters = []
-        for char_img in char_imgs:
-            # Preprocess each character EXACTLY like single-letter canvas
-            char28 = preprocess_canvas_to_mnist(
-                char_img,
-                mode="letter",
-                input_type="canvas"
-            )
-
-            pred_idx, _ = make_prediction_letters(char28)
-            letters.append(idx_to_letter(pred_idx))
+                pred_idx, _ = make_prediction_letters(char28)
+                letters.append(idx_to_letter(pred_idx))
 
 
-        st.subheader(f"Predicted word: **{''.join(letters)}**")
+            st.subheader(f"Predicted word: **{''.join(letters)}**")
 
-        vis = cv2.cvtColor(img, cv2.COLOR_RGBA2BGR)
-        for (x, y, w, h), letter in zip(boxes, letters):
-            cv2.rectangle(vis, (x, y), (x+w, y+h), (0,255,0), 1)
-            cv2.putText(vis, letter, (x, y-5),
-                        cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255,0,0), 1)
+            vis = cv2.cvtColor(img, cv2.COLOR_RGBA2BGR)
+            for (x, y, w, h), letter in zip(boxes, letters):
+                cv2.rectangle(vis, (x, y), (x+w, y+h), (0,255,0), 1)
+                cv2.putText(vis, letter, (x, y-5),
+                            cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255,0,0), 1)
 
-        st.image(cv2.cvtColor(vis, cv2.COLOR_BGR2RGB), use_container_width=True)
+            st.image(cv2.cvtColor(vis, cv2.COLOR_BGR2RGB), use_container_width=True)
 
 
 
 # =================
 # SENTENCES
 # =================
+def run_sentence_mode():
+    st.title("🧾 Handwritten Sentence → Words")
 
-st.title("🧾 Handwritten Sentence → Words")
+    sentence_canvas = st_canvas(
+        fill_color="rgba(255, 255, 255, 1)",
+        stroke_width=7,
+        stroke_color="#000000",
+        background_color="#FFFFFF",
+        height=128,
+        width=800,
+        drawing_mode="freedraw",
+        key="canvas_sentence",
+    )
 
-sentence_canvas = st_canvas(
-    fill_color="rgba(255, 255, 255, 1)",
-    stroke_width=7,
-    stroke_color="#000000",
-    background_color="#FFFFFF",
-    height=128,
-    width=800,
-    drawing_mode="freedraw",
-    key="canvas_sentence",
-)
+    if st.button("Recognize Sentence"):
 
-if st.button("Recognize Sentence"):
-
-    # Guard clause: make sure the user actually drew something
-    if sentence_canvas.image_data is None:
-        st.warning("Draw a sentence first!")
-    else:
-        # Convert canvas RGBA float image → uint8 for OpenCV processing
-        img = sentence_canvas.image_data.astype("uint8")
-
-        # --------------------------------------------------
-        # Segment the line into words, then characters
-        # Returns:
-        #   word_char_imgs  -> [[char28, char28, ...], ...]
-        #   word_char_boxes -> matching bounding boxes
-        # --------------------------------------------------
-        word_char_imgs, word_char_boxes = segment_words_from_line(
-            img, return_boxes=True
-        )
-
-        # If no valid contours were found, give user feedback
-        if not word_char_imgs:
-            st.warning("No characters detected. Try writing bigger / darker.")
+        # Guard clause: make sure the user actually drew something
+        if sentence_canvas.image_data is None:
+            st.warning("Draw a sentence first!")
         else:
-            word_strings = []
+            # Convert canvas RGBA float image → uint8 for OpenCV processing
+            img = sentence_canvas.image_data.astype("uint8")
 
             # --------------------------------------------------
-            # Predict letters word-by-word, character-by-character
+            # Segment the line into words, then characters
+            # Returns:
+            #   word_char_imgs  -> [[char28, char28, ...], ...]
+            #   word_char_boxes -> matching bounding boxes
             # --------------------------------------------------
-            for chars_in_word in word_char_imgs:
-                letters = []
-
-                for char_img in chars_in_word:
-                    # Apply the SAME preprocessing used everywhere else
-                    char28 = preprocess_canvas_to_mnist(
-                        char_img,
-                        mode="letter",
-                        input_type="canvas"
-                    )
-
-                    pred_idx, _ = make_prediction_letters(char28)
-                    letters.append(idx_to_letter(pred_idx))
-
-                # Join predicted letters into a word
-                word_strings.append("".join(letters))
-
-            # Join all predicted words into a sentence
-            sentence = " ".join(word_strings)
-            st.subheader(f"Predicted sentence: **{sentence}**")
-
-            # --------------------------------------------------
-            # Visualization: draw character bounding boxes
-            # on the original canvas image for debugging
-            # --------------------------------------------------
-            if img.shape[2] == 4:
-                # Convert RGBA to BGR for OpenCV drawing
-                vis = cv2.cvtColor(img, cv2.COLOR_RGBA2BGR)
-            else:
-                vis = img.copy()
-
-            # Draw green boxes around each detected character
-            for boxes, word in zip(word_char_boxes, word_strings):
-                for (x, y, w, h) in boxes:
-                    cv2.rectangle(vis, (x, y), (x+w, y+h), (0, 255, 0), 1)
-
-            # Convert back to RGB for Streamlit display
-            vis_rgb = cv2.cvtColor(vis, cv2.COLOR_BGR2RGB)
-            st.image(
-                vis_rgb,
-                caption="Segmented words/characters",
-                use_container_width=True
+            word_char_imgs, word_char_boxes = segment_words_from_line(
+                img, return_boxes=True
             )
+
+            # If no valid contours were found, give user feedback
+            if not word_char_imgs:
+                st.warning("No characters detected. Try writing bigger / darker.")
+            else:
+                word_strings = []
+
+                # --------------------------------------------------
+                # Predict letters word-by-word, character-by-character
+                # --------------------------------------------------
+                for chars_in_word in word_char_imgs:
+                    letters = []
+
+                    for char_img in chars_in_word:
+                        # Apply the SAME preprocessing used everywhere else
+                        char28 = preprocess_canvas_to_mnist(
+                            char_img,
+                            mode="letter",
+                            input_type="canvas"
+                        )
+
+                        pred_idx, _ = make_prediction_letters(char28)
+                        letters.append(idx_to_letter(pred_idx))
+
+                    # Join predicted letters into a word
+                    word_strings.append("".join(letters))
+
+                # Join all predicted words into a sentence
+                sentence = " ".join(word_strings)
+                st.subheader(f"Predicted sentence: **{sentence}**")
+
+                # --------------------------------------------------
+                # Visualization: draw character bounding boxes
+                # on the original canvas image for debugging
+                # --------------------------------------------------
+                if img.shape[2] == 4:
+                    # Convert RGBA to BGR for OpenCV drawing
+                    vis = cv2.cvtColor(img, cv2.COLOR_RGBA2BGR)
+                else:
+                    vis = img.copy()
+
+                # Draw green boxes around each detected character
+                for boxes, word in zip(word_char_boxes, word_strings):
+                    for (x, y, w, h) in boxes:
+                        cv2.rectangle(vis, (x, y), (x+w, y+h), (0, 255, 0), 1)
+
+                # Convert back to RGB for Streamlit display
+                vis_rgb = cv2.cvtColor(vis, cv2.COLOR_BGR2RGB)
+                st.image(
+                    vis_rgb,
+                    caption="Segmented words/characters",
+                    use_container_width=True
+                )
+
+if mode == "Digit":
+    run_digit_mode()
+elif mode == "Letter":
+    run_letter_mode()
+elif mode == "Word":
+    run_word_mode()
+elif mode == "Sentence":
+    run_sentence_mode()
