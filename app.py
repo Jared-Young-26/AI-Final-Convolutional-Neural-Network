@@ -583,7 +583,7 @@ if st.button("Recognize Word"):
                 # - normalized to [0,1]
                 pred_idx, _ = make_prediction_letters(char28)
 
-                # Convert numeric class index → actual letter
+                # Convert numeric class index to actual letter
                 letters.append(idx_to_letter(pred_idx))
 
             # Combine predicted letters into a single word
@@ -701,7 +701,7 @@ if st.button("Recognize Sentence"):
             # on the original canvas image for debugging
             # --------------------------------------------------
             if img.shape[2] == 4:
-                # Convert RGBA → BGR for OpenCV drawing
+                # Convert RGBA to BGR for OpenCV drawing
                 vis = cv2.cvtColor(img, cv2.COLOR_RGBA2BGR)
             else:
                 vis = img.copy()

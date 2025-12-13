@@ -163,7 +163,7 @@ def segment_characters_from_word(img, min_area=20, dilate=True, return_boxes=Fal
     DESCRIPTION:
         Extracts individual handwritten characters from a word-level image.
         Performs thresholding, contour detection, bounding-box extraction,
-        and spatial normalization to produce MNIST-style 28×28 character patches.
+        and spatial normalization to produce EMNIST-style 28×28 character patches.
 
     INPUT:
         img (np.ndarray):
@@ -171,7 +171,7 @@ def segment_characters_from_word(img, min_area=20, dilate=True, return_boxes=Fal
         min_area (int):
             Minimum bounding-box area required to accept a contour as a character.
         dilate (bool):
-            Whether to apply morphological dilation to thicken strokes and improve
+            Whether to apply dilation to thicken strokes and improve
             contour consistency.
         return_boxes (bool):
             If True, returns both the processed character images and their bounding boxes.
@@ -247,7 +247,7 @@ def segment_characters_from_word(img, min_area=20, dilate=True, return_boxes=Fal
         boxes.append((x, y, w, h))
 
     # --------------------------------------------------
-    # Sort characters left → right so output aligns with reading order
+    # Sort characters left to right so output aligns with reading order
     # --------------------------------------------------
     boxes.sort(key=lambda b: b[0])
 
@@ -269,14 +269,11 @@ def segment_characters_from_word(img, min_area=20, dilate=True, return_boxes=Fal
         y_offset = (side - h) // 2
         square[y_offset:y_offset+h, x_offset:x_offset+w] = char_roi
 
-        # Resize to MNIST-standard dimensions
+        # Resize to EMNIST-standard dimensions
         char28 = cv2.resize(square, (28, 28), interpolation=cv2.INTER_AREA)
 
         # Normalize to 0–1 float
         char28 = char28.astype("float32") / 255.0
-
-        # If training assumed inverted MNIST style, flip here:
-        # char28 = 1.0 - char28
 
         char_images.append(char28)
 
@@ -305,7 +302,7 @@ def segment_words_from_line(img, min_area=20, dilate=True,
         min_area (int):
             Minimum bounding-box area required to treat a contour as a valid character.
         dilate (bool):
-            Whether to apply morphological dilation to strengthen and connect strokes.
+            Whether to apply dilation to strengthen and connect strokes.
         gap_factor (float):
             Multiplier applied to the median character width to determine what horizontal
             gap size counts as a word boundary.
@@ -398,7 +395,7 @@ def segment_words_from_line(img, min_area=20, dilate=True,
         return ([], []) if return_boxes else []
 
     # --------------------------------------------------
-    # Step 5: Sort characters left → right (reading order)
+    # Step 5: Sort characters left to right (reading order)
     # --------------------------------------------------
     boxes.sort(key=lambda b: b[0])
 
@@ -462,9 +459,6 @@ def segment_words_from_line(img, min_area=20, dilate=True,
 
             # Normalize pixel intensities to [0, 1]
             char28 = char28.astype("float32") / 255.0
-
-            # If you trained with inverted colors, flip here:
-            # char28 = 1.0 - char28
 
             # Store image + original bounding box
             char_imgs_this_word.append(char28)
