@@ -6,7 +6,7 @@ import tensorflow as tf
 import matplotlib.pyplot as plt
 
 from ann import load_model, predict_classes, predict_proba
-from segments import compute_edges, extract_edge_segment_features, segment_characters_from_word, segment_words_from_line
+from segments import compute_edges, extract_edge_segment_features, segment_characters_from_word, segment_words_from_line, preprocess_canvas_to_mnist
 from cnn.cnn import make_prediction_letters, make_prediction_digits
 
 
@@ -118,46 +118,6 @@ def viz_feature_vector(features):
     ax.set_xlabel("Segment Index")
     ax.set_ylabel("Density")
     return fig
-
-# ======================
-# Utility Functions
-# ======================
-
-def preprocess_canvas(img):
-    """
-    DESCRIPTION:
-        Converts the raw RGBA canvas output from Streamlit’s drawing widget
-        into a normalized 28×28 grayscale image that matches MNIST formatting.
-        This ensures that the custom ANN and the CNN both receive inputs
-        in the same standardized structure.
-
-    INPUT:
-        img : np.ndarray
-            Raw canvas image from Streamlit (H×W×4, uint8 RGBA formatting).
-
-    PROCESSING:
-        - Convert RGBA image into grayscale using OpenCV.
-        - Resize image to 28×28 pixels to match MNIST dataset.
-        - Convert the image to float32 and scale pixel values to [0, 1].
-
-    OUTPUT:
-        np.ndarray
-            A 28×28 float32 grayscale image normalized to MNIST format.
-    """
-
-    # Convert RGBA → grayscale.
-    img = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-
-    # Resize to MNIST dimensions.
-    img = cv2.resize(img, (28, 28))
-
-    # Normalize pixel intensity.
-    img = img.astype("float32") / 255.0
-
-    img = 1 - img 
-
-    return img
-
 
 
 def predict_ann_single_digits(img28):
@@ -351,7 +311,7 @@ from streamlit_drawable_canvas import st_canvas
 # Create interactive drawing area.
 canvas = st_canvas(
     fill_color="rgba(255,255,255,1)",
-    stroke_width=10,
+    stroke_width=6,
     stroke_color="#000000",
     background_color="#FFFFFF",
     width=280,
@@ -372,7 +332,9 @@ if canvas.image_data is not None:
     st.image(canvas.image_data, caption="Live Drawing", width=280)
 
     # Convert to MNIST-style.
-    img28 = preprocess_canvas(img)
+    img28 = preprocess_canvas_to_mnist(img)
+    st.image(img28, caption="Preprocessed MNIST Input", width=150)
+
 
     # Display preprocessed image for verification.
     #st.subheader("Processed 28×28 Image")
@@ -444,7 +406,7 @@ st.title("🔡 Handwritten Letters Recognition Demo")
 # Create interactive drawing area.
 canvas = st_canvas(
     fill_color="rgba(255,255,255,1)",
-    stroke_width=10,
+    stroke_width=7,
     stroke_color="#000000",
     background_color="#FFFFFF",
     width=280,
@@ -465,7 +427,8 @@ if canvas.image_data is not None:
     st.image(canvas.image_data, caption="Live Drawing", width=280)
 
     # Convert to MNIST-style.
-    img28 = preprocess_canvas(img)
+    img28 = preprocess_canvas_to_mnist(img)
+    st.image(img28, caption="Preprocessed MNIST Input", width=150)
 
     # Display preprocessed image for verification.
     st.subheader("Processed 28×28 Image")
@@ -536,7 +499,7 @@ st.title("📝 Handwritten Word → Text with Bounding Boxes")
 
 canvas_result = st_canvas(
     fill_color="rgba(255, 255, 255, 1)",
-    stroke_width=10,
+    stroke_width=7,
     stroke_color="#000000",
     background_color="#FFFFFF",
     height=128,

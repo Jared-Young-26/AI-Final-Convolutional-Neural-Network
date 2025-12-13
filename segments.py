@@ -1,5 +1,108 @@
 import cv2
 import numpy as np
+import scipy.ndimage as ndimage
+
+def preprocess_canvas_to_mnist(canvas_img, debug=False):
+    """
+    Converts a Streamlit canvas image into an MNIST-style 28×28 digit.
+
+    INPUT:
+        canvas_img (np.ndarray):
+            Image from Streamlit canvas (RGBA, RGB, or grayscale).
+            Expected size ~280×280.
+
+    OUTPUT:
+        img28 (np.ndarray):
+            28×28 float32 array in [0,1],
+            white digit on black background (MNIST format).
+    """
+
+    # --------------------------------------------------
+    # 1. Convert to grayscale safely
+    # --------------------------------------------------
+    if len(canvas_img.shape) == 3:
+        if canvas_img.shape[2] == 4:  # RGBA
+            canvas_img = cv2.cvtColor(canvas_img, cv2.COLOR_RGBA2RGB)
+        gray = cv2.cvtColor(canvas_img, cv2.COLOR_RGB2GRAY)
+    else:
+        gray = canvas_img.copy()
+
+    # --------------------------------------------------
+    # 2. Invert if necessary (canvas is black-on-white)
+    # MNIST is white-on-black
+    # --------------------------------------------------
+    if np.mean(gray) > 127:
+        gray = 255 - gray
+
+    # --------------------------------------------------
+    # 3. Threshold using Otsu (robust to stroke width)
+    # --------------------------------------------------
+    _, thresh = cv2.threshold(
+        gray, 0, 255,
+        cv2.THRESH_BINARY + cv2.THRESH_OTSU
+    )
+
+    # --------------------------------------------------
+    # 4. Remove small noise via morphology
+    # --------------------------------------------------
+    kernel = np.ones((3, 3), np.uint8)
+    thresh = cv2.morphologyEx(thresh, cv2.MORPH_OPEN, kernel)
+
+    # --------------------------------------------------
+    # 5. Find bounding box of the digit
+    # --------------------------------------------------
+    coords = cv2.findNonZero(thresh)
+    if coords is None:
+        return np.zeros((28, 28), dtype=np.float32)
+
+    x, y, w, h = cv2.boundingRect(coords)
+    digit = thresh[y:y+h, x:x+w]
+
+    # --------------------------------------------------
+    # 6. Resize while preserving aspect ratio
+    # MNIST digits occupy ~20×20 inside 28×28
+    # --------------------------------------------------
+    target_inner = 20
+    h_, w_ = digit.shape
+
+    if h_ > w_:
+        new_h = target_inner
+        new_w = int(w_ * target_inner / h_)
+    else:
+        new_w = target_inner
+        new_h = int(h_ * target_inner / w_)
+
+    digit = cv2.resize(digit, (new_w, new_h), interpolation=cv2.INTER_AREA)
+
+    # --------------------------------------------------
+    # 7. Pad to 28×28 and center
+    # --------------------------------------------------
+    img28 = np.zeros((28, 28), dtype=np.uint8)
+
+    x_offset = (28 - new_w) // 2
+    y_offset = (28 - new_h) // 2
+
+    img28[y_offset:y_offset+new_h, x_offset:x_offset+new_w] = digit
+
+    # --------------------------------------------------
+    # 8. Normalize to [0,1] float32
+    # --------------------------------------------------
+    img28 = img28.astype(np.float32) / 255.0
+
+    # --------------------------------------------------
+    # 9. Optional centering via center-of-mass (MNIST trick)
+    # --------------------------------------------------
+    cy, cx = ndimage.center_of_mass(img28)
+    if not np.isnan(cx):
+        shift_x = int(14 - cx)
+        shift_y = int(14 - cy)
+        img28 = np.roll(img28, shift=(shift_y, shift_x), axis=(0, 1))
+
+    if debug:
+        return img28, thresh
+
+    return img28
+
 
 def compute_edges(image, threshold=0.001):
     """
