@@ -280,8 +280,9 @@ def run_word_mode():
                     mode="letter",
                     input_type="canvas"
                 )
-
-                pred_idx, _ = make_prediction_letters(char28)
+                #char28 = char_img
+                pred_idx, _ = predict_tf(char28, load_tf_model("tf_cnn_model_letters.keras"))
+                #pred_idx, _ = make_prediction_letters(char28)
                 letters.append(idx_to_letter(pred_idx))
 
 

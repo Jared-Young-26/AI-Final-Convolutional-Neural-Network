@@ -368,9 +368,9 @@ def segment_characters_from_word(img, min_area=20, dilate=True, return_boxes=Fal
         char_roi = thresh[y:y+h, x:x+w]
 
         # Use unified MNIST preprocessing
-        char28 = preprocess_canvas_to_mnist(char_roi)
+        #char28 = preprocess_canvas_to_mnist(char_roi)
 
-        char_images.append(char28)
+        char_images.append(char_roi)
 
 
     # --------------------------------------------------
@@ -541,9 +541,9 @@ def segment_words_from_line(img, min_area=20, dilate=True,
             char_roi = thresh[y:y+h, x:x+w]
 
             # Unified preprocessing
-            char28 = preprocess_canvas_to_mnist(char_roi)
+            #char28 = preprocess_canvas_to_mnist(char_roi)
 
-            char_imgs_this_word.append(char28)
+            char_imgs_this_word.append(char_roi)
             boxes_this_word.append((x, y, w, h))
 
         word_char_images.append(char_imgs_this_word)
