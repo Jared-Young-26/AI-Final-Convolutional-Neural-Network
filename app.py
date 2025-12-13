@@ -141,12 +141,8 @@ def predict_tf(img28, model):
 def idx_to_letter(idx: int) -> str:
     return chr(ord("A") + int(idx))
 
-def canvas_to_img28(canvas_img, rotate=False):
-    img28 = preprocess_canvas_to_mnist(canvas_img)
-
-    if rotate:
-        img28 = np.rot90(img28, 1)
-        img28 = np.fliplr(img28)
+def canvas_to_img28(canvas_img, mode="digit"):
+    img28 = preprocess_canvas_to_mnist(canvas_img, mode=mode, debug=False)
 
     return img28
 
@@ -216,7 +212,7 @@ canvas = st_canvas(
 
 if canvas.image_data is not None:
     img = canvas.image_data.astype("uint8")
-    img28 = canvas_to_img28(img, rotate=True)
+    img28 = canvas_to_img28(img, mode="letter")
 
     st.image(img28, caption="Preprocessed EMNIST Input", width=150)
 

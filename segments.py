@@ -2,7 +2,7 @@ import cv2
 import numpy as np
 import scipy.ndimage as ndimage
 
-def preprocess_canvas_to_mnist(canvas_img, debug=False):
+def preprocess_canvas_to_mnist(canvas_img, mode="digit", debug=False):
     """
     Converts a Streamlit canvas image into an MNIST-style 28×28 digit.
 
@@ -97,6 +97,17 @@ def preprocess_canvas_to_mnist(canvas_img, debug=False):
         shift_x = int(14 - cx)
         shift_y = int(14 - cy)
         img28 = np.roll(img28, shift=(shift_y, shift_x), axis=(0, 1))
+
+    # --------------------------------------------------
+    # EMNIST-specific orientation correction
+    # --------------------------------------------------
+    if mode == "letter":
+        img28 = np.rot90(img28, -1)
+        img28 = np.fliplr(img28)
+        kernel = np.ones((2, 2), np.uint8)
+        img28 = cv2.dilate((img28 * 255).astype(np.uint8), kernel, 1)
+        img28 = img28.astype(np.float32) / 255.0
+
 
     if debug:
         return img28, thresh
